@@ -5,7 +5,7 @@ import { useThemeContext } from '../contexts/ThemeContext';
 
 // New header components
 import { ProjectDropdown, BuildDropdown, SettingsDropdown, ProjectInfo } from './header';
-import { RocketIcon, LayoutIcon, WandIcon, SaveIcon, MenuIcon, XIcon } from './ui/Icons';
+import { RocketIcon, LayoutIcon, WandIcon, SaveIcon, MenuIcon, XIcon, BellIcon } from './ui/Icons';
 
 // ============================================================================
 // TYPES
@@ -57,6 +57,11 @@ export interface BuilderHeaderProps {
 
   // New app action
   onNewApp?: () => void;
+
+  // AI Collaboration
+  collaborationEnabled?: boolean;
+  notificationCount?: number;
+  onOpenCollaboration?: () => void;
 }
 
 // ============================================================================
@@ -384,6 +389,9 @@ export function BuilderHeader({
   currentMode: _currentMode,
   onModeChange: _onModeChange,
   onNewApp,
+  collaborationEnabled,
+  notificationCount = 0,
+  onOpenCollaboration,
 }: BuilderHeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { theme, setTheme } = useThemeContext();
@@ -501,6 +509,25 @@ export function BuilderHeader({
             <SaveIcon size={16} />
             <span className="hidden lg:inline">{isSaving ? 'Saving...' : 'Save'}</span>
           </button>
+
+          {/* AI Collaboration */}
+          {collaborationEnabled && (
+            <>
+              <div className="w-px h-6 bg-zinc-800" />
+              <button
+                onClick={onOpenCollaboration}
+                className="linear-btn-ghost relative"
+                title="AI Collaboration"
+              >
+                <BellIcon size={16} />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[10px] flex items-center justify-center">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Spacer for mobile */}

@@ -26,6 +26,8 @@ import LayoutBuilderWizard from './LayoutBuilderWizard';
 import SettingsPage from './SettingsPage';
 import BuilderHeader from './BuilderHeader';
 import TabNavigation from './TabNavigation';
+import AICollaborationHub from './ai-collaboration/AICollaborationHub';
+import type { BuilderMode } from '@/types/aiCollaboration';
 
 // UI components
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './ui';
@@ -292,6 +294,10 @@ export default function AIBuilder() {
 
   // Dynamic Phase Generation state
   const [dynamicPhasePlan, setDynamicPhasePlan] = useState<DynamicPhasePlan | null>(null);
+
+  // AI Collaboration state
+  const [showCollaboration, setShowCollaboration] = useState(false);
+  const [collaborationNotificationCount, setCollaborationNotificationCount] = useState(0);
 
   // Initialize StorageService
   const [storageService] = useState(() => {
@@ -2470,6 +2476,9 @@ export default function AIBuilder() {
           currentMode={currentMode}
           onModeChange={setCurrentMode}
           onNewApp={handleNewApp}
+          collaborationEnabled={true}
+          notificationCount={collaborationNotificationCount}
+          onOpenCollaboration={() => setShowCollaboration(!showCollaboration)}
         />
 
         {/* Tab Navigation */}
@@ -2525,7 +2534,7 @@ export default function AIBuilder() {
               <ResizableHandle />
 
               {/* Preview Panel */}
-              <ResizablePanel defaultSize={65} minSize={30} maxSize={80}>
+              <ResizablePanel defaultSize={showCollaboration ? 45 : 65} minSize={30} maxSize={80}>
                 <PreviewPanel
                   currentComponent={currentComponent}
                   activeTab={activeTab}
@@ -2545,6 +2554,31 @@ export default function AIBuilder() {
                   }}
                 />
               </ResizablePanel>
+
+              {/* AI Collaboration Panel */}
+              {showCollaboration && (
+                <>
+                  <ResizableHandle />
+                  <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                    <AICollaborationHub
+                      appId={currentComponent?.id || ''}
+                      teamId={undefined}
+                      currentUserId={user?.id || ''}
+                      currentMode={currentMode.toLowerCase() as BuilderMode}
+                      currentPhase={dynamicBuildPhases.currentPhase?.id}
+                      conversationSnapshot={chatMessages}
+                      phases={dynamicPhasePlan?.phases?.map(p => ({
+                        number: p.number,
+                        name: p.name,
+                        features: p.features
+                      }))}
+                      onContextChange={(context) => {
+                        console.log('AI Context updated:', context.slice(0, 100));
+                      }}
+                    />
+                  </ResizablePanel>
+                </>
+              )}
             </ResizablePanelGroup>
           </div>
         )}

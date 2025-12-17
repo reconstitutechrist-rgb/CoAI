@@ -85,34 +85,44 @@ export default function AICollaborationHub({
     createDecision,
     castVote,
     applyDecision,
+    withdrawDecision,
 
     // Context actions
     createContext,
     updateContext,
+    deleteContext,
     refreshCombinedContext,
 
     // Template actions
     createTemplate,
+    updateTemplate,
+    deleteTemplate,
     useTemplate,
 
     // Handoff actions
     createHandoff,
     acceptHandoff,
     declineHandoff,
+    completeHandoff,
 
     // Planning actions
     createPlanningSession,
     addPhaseSuggestion,
     votePlanningSession,
+    approvePlanningSession,
+    rejectPlanningSession,
+    finalizePlanningSession,
 
     // Ownership actions
     assignFeatureOwner,
     updateFeatureOwnership,
+    removeFeatureOwnership,
 
     // Review actions
     createReview,
     submitReviewResponse,
     applyReviewChanges,
+    withdrawReviewRequest,
   } = useAICollaboration({ teamId, appId, autoLoad: true });
 
   // Transform team members for components
@@ -164,8 +174,8 @@ export default function AICollaborationHub({
             onApplyDecision={async (decisionId, selectedOption) => {
               await applyDecision(decisionId, selectedOption?.toString());
             }}
-            onWithdraw={async () => {
-              // Handle withdraw - could add to service
+            onWithdraw={async (decisionId) => {
+              await withdrawDecision(decisionId);
             }}
             onCreateDecision={async (input) => {
               await createDecision({
@@ -201,8 +211,8 @@ export default function AICollaborationHub({
               await updateContext(contextId, updates);
               await refreshCombinedContext();
             }}
-            onDeleteContext={async () => {
-              // Handle delete - could add to service
+            onDeleteContext={async (contextId) => {
+              await deleteContext(contextId);
               await refreshCombinedContext();
             }}
           />
@@ -217,11 +227,11 @@ export default function AICollaborationHub({
             onCreateTemplate={async (input) => {
               await createTemplate(input);
             }}
-            onUpdateTemplate={async () => {
-              // Handle update - could add to service
+            onUpdateTemplate={async (templateId, input) => {
+              await updateTemplate(templateId, input);
             }}
-            onDeleteTemplate={async () => {
-              // Handle delete - could add to service
+            onDeleteTemplate={async (templateId) => {
+              await deleteTemplate(templateId);
             }}
             onUseTemplate={async (templateId, variables) => {
               return await useTemplate(templateId, variables);
@@ -258,8 +268,8 @@ export default function AICollaborationHub({
             onDeclineHandoff={async (handoffId, reason) => {
               await declineHandoff(handoffId, reason);
             }}
-            onCompleteHandoff={async () => {
-              // Handle complete - could add to service
+            onCompleteHandoff={async (handoffId) => {
+              await completeHandoff(handoffId);
             }}
           />
         );
@@ -297,13 +307,13 @@ export default function AICollaborationHub({
               await votePlanningSession({ suggestionId, vote, comment });
             }}
             onApproveSuggestion={async () => {
-              // Handle approve - could add to service
+              await approvePlanningSession();
             }}
             onRejectSuggestion={async () => {
-              // Handle reject - could add to service
+              await rejectPlanningSession();
             }}
             onFinalizeSession={async () => {
-              // Handle finalize - could add to service
+              await finalizePlanningSession();
             }}
           />
         );
@@ -330,8 +340,8 @@ export default function AICollaborationHub({
             onUpdateOwnership={async (ownershipId, updates) => {
               await updateFeatureOwnership(ownershipId, updates);
             }}
-            onRemoveOwnership={async () => {
-              // Handle remove - could add to service
+            onRemoveOwnership={async (ownershipId) => {
+              await removeFeatureOwnership(ownershipId);
             }}
           />
         );

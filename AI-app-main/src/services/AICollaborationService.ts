@@ -319,6 +319,70 @@ export class AICollaborationService {
     }
   }
 
+  /**
+   * Update a prompt template
+   */
+  async updatePromptTemplate(
+    templateId: string,
+    input: Partial<CreatePromptTemplateInput>
+  ): Promise<AICollaborationResult<SharedPromptTemplate>> {
+    try {
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.description !== undefined) updateData.description = input.description;
+      if (input.templateText !== undefined) updateData.template_text = input.templateText;
+      if (input.category !== undefined) updateData.category = input.category;
+      if (input.variables !== undefined) updateData.variables = input.variables;
+      if (input.isPublic !== undefined) updateData.is_public = input.isPublic;
+
+      const { data, error } = await this.supabase
+        .from('shared_prompt_templates')
+        .update(updateData)
+        .eq('id', templateId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data: this.transformTemplate(data) };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'TEMPLATE_UPDATE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to update template',
+        },
+      };
+    }
+  }
+
+  /**
+   * Delete a prompt template
+   */
+  async deletePromptTemplate(templateId: string): Promise<AICollaborationResult<void>> {
+    try {
+      const { error } = await this.supabase
+        .from('shared_prompt_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'TEMPLATE_DELETE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to delete template',
+        },
+      };
+    }
+  }
+
   // ============================================================================
   // AI DECISIONS
   // ============================================================================
@@ -491,6 +555,39 @@ export class AICollaborationService {
     }
   }
 
+  /**
+   * Withdraw a decision (creator only)
+   */
+  async withdrawDecision(
+    decisionId: string,
+    userId: string
+  ): Promise<AICollaborationResult<void>> {
+    try {
+      const { error } = await this.supabase
+        .from('ai_decisions')
+        .update({
+          status: 'withdrawn',
+          resolved_by: userId,
+          resolved_at: new Date().toISOString(),
+        })
+        .eq('id', decisionId)
+        .eq('created_by', userId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'DECISION_WITHDRAW_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to withdraw decision',
+        },
+      };
+    }
+  }
+
   // ============================================================================
   // SHARED AI CONTEXT
   // ============================================================================
@@ -628,6 +725,30 @@ export class AICollaborationService {
     }
   }
 
+  /**
+   * Delete shared context
+   */
+  async deleteContext(contextId: string): Promise<AICollaborationResult<void>> {
+    try {
+      const { error } = await this.supabase
+        .from('shared_ai_context')
+        .delete()
+        .eq('id', contextId);
+
+      if (error) throw error;
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'CONTEXT_DELETE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to delete context',
+        },
+      };
+    }
+  }
+
   // ============================================================================
   // CONVERSATION HANDOFFS
   // ============================================================================
@@ -740,6 +861,40 @@ export class AICollaborationService {
         error: {
           code: 'HANDOFF_RESPOND_ERROR',
           message: error instanceof Error ? error.message : 'Failed to respond to handoff',
+        },
+      };
+    }
+  }
+
+  /**
+   * Complete a handoff
+   */
+  async completeHandoff(
+    handoffId: string,
+    userId: string
+  ): Promise<AICollaborationResult<AIConversationHandoff>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('ai_conversation_handoffs')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', handoffId)
+        .eq('to_user_id', userId)
+        .eq('status', 'accepted')
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data: this.transformHandoff(data) };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'HANDOFF_COMPLETE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to complete handoff',
         },
       };
     }
@@ -922,6 +1077,108 @@ export class AICollaborationService {
     }
   }
 
+  /**
+   * Approve a planning session
+   */
+  async approvePlanningSession(
+    sessionId: string,
+    userId: string
+  ): Promise<AICollaborationResult<PhasePlanningSession>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('phase_planning_sessions')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          approved_by: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data: this.transformPlanningSession(data) };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'SESSION_APPROVE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to approve session',
+        },
+      };
+    }
+  }
+
+  /**
+   * Reject a planning session
+   */
+  async rejectPlanningSession(
+    sessionId: string,
+    userId: string
+  ): Promise<AICollaborationResult<PhasePlanningSession>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('phase_planning_sessions')
+        .update({
+          status: 'rejected',
+          approved_by: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data: this.transformPlanningSession(data) };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'SESSION_REJECT_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to reject session',
+        },
+      };
+    }
+  }
+
+  /**
+   * Finalize a planning session and start execution
+   */
+  async finalizePlanningSession(
+    sessionId: string,
+    userId: string
+  ): Promise<AICollaborationResult<PhasePlanningSession>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('phase_planning_sessions')
+        .update({
+          status: 'in_progress',
+          execution_started_at: new Date().toISOString(),
+          current_phase: 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sessionId)
+        .eq('status', 'approved')
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data: this.transformPlanningSession(data) };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'SESSION_FINALIZE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to finalize session',
+        },
+      };
+    }
+  }
+
   // ============================================================================
   // FEATURE OWNERSHIP
   // ============================================================================
@@ -1052,6 +1309,30 @@ export class AICollaborationService {
         error: {
           code: 'OWNERSHIP_UPDATE_ERROR',
           message: error instanceof Error ? error.message : 'Failed to update ownership',
+        },
+      };
+    }
+  }
+
+  /**
+   * Remove feature ownership
+   */
+  async removeFeatureOwnership(ownershipId: string): Promise<AICollaborationResult<void>> {
+    try {
+      const { error } = await this.supabase
+        .from('feature_ownership')
+        .delete()
+        .eq('id', ownershipId);
+
+      if (error) throw error;
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'OWNERSHIP_REMOVE_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to remove ownership',
         },
       };
     }
@@ -1275,6 +1556,62 @@ export class AICollaborationService {
         error: {
           code: 'REVIEW_APPLY_ERROR',
           message: error instanceof Error ? error.message : 'Failed to apply changes',
+        },
+      };
+    }
+  }
+
+  /**
+   * Withdraw a review request (creator only, pending status only)
+   */
+  async withdrawReviewRequest(
+    reviewId: string,
+    userId: string
+  ): Promise<AICollaborationResult<void>> {
+    try {
+      // Verify user is the creator and review is still pending
+      const { data: review, error: fetchError } = await this.supabase
+        .from('ai_review_requests')
+        .select('created_by, status')
+        .eq('id', reviewId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      if (review.created_by !== userId) {
+        return {
+          success: false,
+          error: {
+            code: 'REVIEW_NOT_CREATOR',
+            message: 'Only the creator can withdraw a review request',
+          },
+        };
+      }
+
+      if (review.status !== 'pending') {
+        return {
+          success: false,
+          error: {
+            code: 'REVIEW_NOT_PENDING',
+            message: 'Can only withdraw pending review requests',
+          },
+        };
+      }
+
+      const { error } = await this.supabase
+        .from('ai_review_requests')
+        .delete()
+        .eq('id', reviewId);
+
+      if (error) throw error;
+
+      return { success: true, data: undefined };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          code: 'REVIEW_WITHDRAW_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to withdraw review',
         },
       };
     }

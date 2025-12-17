@@ -80,6 +80,8 @@ export interface UseAICollaborationReturn {
 
   // Prompt Templates
   createTemplate: (input: CreatePromptTemplateInput) => Promise<SharedPromptTemplate | null>;
+  updateTemplate: (templateId: string, input: Partial<CreatePromptTemplateInput>) => Promise<boolean>;
+  deleteTemplate: (templateId: string) => Promise<boolean>;
   loadTemplates: () => Promise<void>;
   useTemplate: (templateId: string, variables?: Record<string, string>) => Promise<string | null>;
 
@@ -88,10 +90,12 @@ export interface UseAICollaborationReturn {
   loadDecisions: (status?: string) => Promise<void>;
   castVote: (decisionId: string, input: CastVoteInput) => Promise<boolean>;
   applyDecision: (decisionId: string, selectedOption?: string) => Promise<boolean>;
+  withdrawDecision: (decisionId: string) => Promise<boolean>;
 
   // Shared AI Context
   createContext: (input: CreateAIContextInput) => Promise<SharedAIContext | null>;
   updateContext: (contextId: string, input: UpdateAIContextInput) => Promise<boolean>;
+  deleteContext: (contextId: string) => Promise<boolean>;
   loadContexts: () => Promise<void>;
   refreshCombinedContext: () => Promise<void>;
 
@@ -100,6 +104,7 @@ export interface UseAICollaborationReturn {
   loadPendingHandoffs: () => Promise<void>;
   acceptHandoff: (handoffId: string) => Promise<AIConversationHandoff | null>;
   declineHandoff: (handoffId: string, reason?: string) => Promise<boolean>;
+  completeHandoff: (handoffId: string) => Promise<boolean>;
 
   // Phase Planning
   createPlanningSession: (input: Omit<CreatePlanningSessionInput, 'appId' | 'teamId'>) => Promise<PhasePlanningSession | null>;
@@ -107,11 +112,15 @@ export interface UseAICollaborationReturn {
   addPhaseSuggestion: (input: CreatePhaseSuggestionInput) => Promise<boolean>;
   votePlanningSession: (input: CastPlanningVoteInput) => Promise<boolean>;
   updateProposedPhases: (phases: ProposedPhase[]) => Promise<boolean>;
+  approvePlanningSession: () => Promise<boolean>;
+  rejectPlanningSession: () => Promise<boolean>;
+  finalizePlanningSession: () => Promise<boolean>;
 
   // Feature Ownership
   assignFeatureOwner: (input: Omit<CreateFeatureOwnershipInput, 'appId' | 'teamId'>) => Promise<FeatureOwnership | null>;
   loadFeatureOwnerships: () => Promise<void>;
   updateFeatureOwnership: (ownershipId: string, input: UpdateFeatureOwnershipInput) => Promise<boolean>;
+  removeFeatureOwnership: (ownershipId: string) => Promise<boolean>;
   getOwnedFeatures: () => Promise<FeatureOwnership[]>;
 
   // AI Review Workflow
@@ -119,6 +128,7 @@ export interface UseAICollaborationReturn {
   loadReviews: (status?: string) => Promise<void>;
   submitReviewResponse: (reviewId: string, input: CreateReviewResponseInput) => Promise<boolean>;
   applyReviewChanges: (reviewId: string) => Promise<boolean>;
+  withdrawReviewRequest: (reviewId: string) => Promise<boolean>;
   getMyReviews: () => Promise<AIReviewRequest[]>;
 
   // Statistics
@@ -278,6 +288,50 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     [currentUser?.id]
   );
 
+  const updateTemplate = useCallback(
+    async (templateId: string, input: Partial<CreatePromptTemplateInput>): Promise<boolean> => {
+      if (!serviceRef.current) return false;
+
+      try {
+        const result = await serviceRef.current.updatePromptTemplate(templateId, input);
+
+        if (result.success) {
+          setTemplates((prev) =>
+            prev.map((t) => (t.id === templateId ? result.data : t))
+          );
+          return true;
+        }
+        setError(result.error?.message || 'Failed to update template');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update template');
+        return false;
+      }
+    },
+    []
+  );
+
+  const deleteTemplate = useCallback(
+    async (templateId: string): Promise<boolean> => {
+      if (!serviceRef.current) return false;
+
+      try {
+        const result = await serviceRef.current.deletePromptTemplate(templateId);
+
+        if (result.success) {
+          setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+          return true;
+        }
+        setError(result.error?.message || 'Failed to delete template');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete template');
+        return false;
+      }
+    },
+    []
+  );
+
   // ============================================================================
   // AI DECISIONS
   // ============================================================================
@@ -376,6 +430,27 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     [currentUser?.id]
   );
 
+  const withdrawDecision = useCallback(
+    async (decisionId: string): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id) return false;
+
+      try {
+        const result = await serviceRef.current.withdrawDecision(decisionId, currentUser.id);
+
+        if (result.success) {
+          setDecisions((prev) => prev.filter((d) => d.id !== decisionId));
+          return true;
+        }
+        setError(result.error?.message || 'Failed to withdraw decision');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to withdraw decision');
+        return false;
+      }
+    },
+    [currentUser?.id]
+  );
+
   // ============================================================================
   // SHARED AI CONTEXT
   // ============================================================================
@@ -424,6 +499,28 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
       }
     },
     [currentUser?.id]
+  );
+
+  const deleteContext = useCallback(
+    async (contextId: string): Promise<boolean> => {
+      if (!serviceRef.current) return false;
+
+      try {
+        const result = await serviceRef.current.deleteContext(contextId);
+
+        if (result.success) {
+          setContexts((prev) => prev.filter((c) => c.id !== contextId));
+          await refreshCombinedContext();
+          return true;
+        }
+        setError(result.error?.message || 'Failed to delete context');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete context');
+        return false;
+      }
+    },
+    [refreshCombinedContext]
   );
 
   const loadContexts = useCallback(async () => {
@@ -538,6 +635,27 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
         return false;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to decline handoff');
+        return false;
+      }
+    },
+    [currentUser?.id]
+  );
+
+  const completeHandoff = useCallback(
+    async (handoffId: string): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id) return false;
+
+      try {
+        const result = await serviceRef.current.completeHandoff(handoffId, currentUser.id);
+
+        if (result.success) {
+          setPendingHandoffs((prev) => prev.filter((h) => h.id !== handoffId));
+          return true;
+        }
+        setError(result.error?.message || 'Failed to complete handoff');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to complete handoff');
         return false;
       }
     },
@@ -660,6 +778,69 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     [planningSession]
   );
 
+  const approvePlanningSession = useCallback(
+    async (): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id || !planningSession) return false;
+
+      try {
+        const result = await serviceRef.current.approvePlanningSession(planningSession.id, currentUser.id);
+
+        if (result.success) {
+          setPlanningSession(result.data);
+          return true;
+        }
+        setError(result.error?.message || 'Failed to approve planning session');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to approve planning session');
+        return false;
+      }
+    },
+    [planningSession, currentUser?.id]
+  );
+
+  const rejectPlanningSession = useCallback(
+    async (): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id || !planningSession) return false;
+
+      try {
+        const result = await serviceRef.current.rejectPlanningSession(planningSession.id, currentUser.id);
+
+        if (result.success) {
+          setPlanningSession(result.data);
+          return true;
+        }
+        setError(result.error?.message || 'Failed to reject planning session');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to reject planning session');
+        return false;
+      }
+    },
+    [planningSession, currentUser?.id]
+  );
+
+  const finalizePlanningSession = useCallback(
+    async (): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id || !planningSession) return false;
+
+      try {
+        const result = await serviceRef.current.finalizePlanningSession(planningSession.id, currentUser.id);
+
+        if (result.success) {
+          setPlanningSession(result.data);
+          return true;
+        }
+        setError(result.error?.message || 'Failed to finalize planning session');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to finalize planning session');
+        return false;
+      }
+    },
+    [planningSession, currentUser?.id]
+  );
+
   // ============================================================================
   // FEATURE OWNERSHIP
   // ============================================================================
@@ -730,6 +911,27 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
         return false;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update ownership');
+        return false;
+      }
+    },
+    []
+  );
+
+  const removeFeatureOwnership = useCallback(
+    async (ownershipId: string): Promise<boolean> => {
+      if (!serviceRef.current) return false;
+
+      try {
+        const result = await serviceRef.current.removeFeatureOwnership(ownershipId);
+
+        if (result.success) {
+          setFeatureOwnerships((prev) => prev.filter((o) => o.id !== ownershipId));
+          return true;
+        }
+        setError(result.error?.message || 'Failed to remove ownership');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to remove ownership');
         return false;
       }
     },
@@ -844,6 +1046,27 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     [currentUser?.id]
   );
 
+  const withdrawReviewRequest = useCallback(
+    async (reviewId: string): Promise<boolean> => {
+      if (!serviceRef.current || !currentUser?.id) return false;
+
+      try {
+        const result = await serviceRef.current.withdrawReviewRequest(reviewId, currentUser.id);
+
+        if (result.success) {
+          setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+          return true;
+        }
+        setError(result.error?.message || 'Failed to withdraw review');
+        return false;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to withdraw review');
+        return false;
+      }
+    },
+    [currentUser?.id]
+  );
+
   const getMyReviews = useCallback(async (): Promise<AIReviewRequest[]> => {
     if (!serviceRef.current || !currentUser?.id) return [];
 
@@ -940,6 +1163,8 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
 
     // Prompt Templates
     createTemplate,
+    updateTemplate,
+    deleteTemplate,
     loadTemplates,
     useTemplate,
 
@@ -948,10 +1173,12 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     loadDecisions,
     castVote,
     applyDecision,
+    withdrawDecision,
 
     // Shared AI Context
     createContext,
     updateContext,
+    deleteContext,
     loadContexts,
     refreshCombinedContext,
 
@@ -960,6 +1187,7 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     loadPendingHandoffs,
     acceptHandoff,
     declineHandoff,
+    completeHandoff,
 
     // Phase Planning
     createPlanningSession,
@@ -967,11 +1195,15 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     addPhaseSuggestion,
     votePlanningSession,
     updateProposedPhases,
+    approvePlanningSession,
+    rejectPlanningSession,
+    finalizePlanningSession,
 
     // Feature Ownership
     assignFeatureOwner,
     loadFeatureOwnerships,
     updateFeatureOwnership,
+    removeFeatureOwnership,
     getOwnedFeatures,
 
     // AI Review Workflow
@@ -979,6 +1211,7 @@ export function useAICollaboration(options: UseAICollaborationOptions): UseAICol
     loadReviews,
     submitReviewResponse,
     applyReviewChanges,
+    withdrawReviewRequest,
     getMyReviews,
 
     // Statistics

@@ -7,7 +7,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { SharedPromptTemplate, TemplateCategory, TemplateVariable } from '@/types/aiCollaboration';
+import { SharedPromptTemplate, TemplateCategory, TemplateVariable, CreatePromptTemplateInput } from '@/types/aiCollaboration';
 
 interface PromptTemplatesPanelProps {
   templates: SharedPromptTemplate[];
@@ -21,7 +21,7 @@ interface PromptTemplatesPanelProps {
     variables?: TemplateVariable[];
     isPublic?: boolean;
   }) => Promise<void>;
-  onUpdateTemplate: (templateId: string, updates: Partial<SharedPromptTemplate>) => Promise<void>;
+  onUpdateTemplate: (templateId: string, updates: Partial<CreatePromptTemplateInput>) => Promise<void>;
   onDeleteTemplate: (templateId: string) => Promise<void>;
   onUseTemplate: (templateId: string, variables?: Record<string, string>) => Promise<string | null>;
   onInsertPrompt?: (prompt: string) => void;
