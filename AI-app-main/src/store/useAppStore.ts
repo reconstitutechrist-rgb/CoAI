@@ -42,6 +42,18 @@ import type { PhaseId } from '@/types/buildPhases';
 import type { FileMetadata, StorageStats } from '@/types/storage';
 import type { DeploymentInstructions } from '@/utils/exportApp';
 import type { ProjectDocumentation } from '@/types/projectDocumentation';
+import type {
+  Team,
+  TeamMember,
+  AppAccess,
+  AppCollaborator,
+  Task,
+  TaskFilters,
+  TaskComment,
+  ActivityLog,
+  ActivityFilters,
+  PresenceUser,
+} from '@/types/collaboration';
 
 // ============================================================================
 // STORE STATE INTERFACE
@@ -273,6 +285,91 @@ interface FileStorageSlice {
 }
 
 /**
+ * Collaboration slice state for team and sharing features
+ */
+interface CollaborationSlice {
+  // Current team context
+  currentTeamId: string | null;
+  currentTeam: Team | null;
+  // Team list (cached)
+  teams: Team[];
+  teamsLoading: boolean;
+  // App access for current app
+  currentAppAccess: AppAccess | null;
+  currentAppCollaborators: AppCollaborator[];
+  // Online presence
+  onlineTeamMembers: PresenceUser[];
+  // Modal states
+  showTeamSettings: boolean;
+  showInviteModal: boolean;
+  showAccessModal: boolean;
+  showTeamChat: boolean;
+  // Actions
+  setCurrentTeamId: (teamId: string | null) => void;
+  setCurrentTeam: (team: Team | null) => void;
+  setTeams: (teams: Team[]) => void;
+  setTeamsLoading: (loading: boolean) => void;
+  setCurrentAppAccess: (access: AppAccess | null) => void;
+  setCurrentAppCollaborators: (collaborators: AppCollaborator[]) => void;
+  setOnlineTeamMembers: (members: PresenceUser[]) => void;
+  setShowTeamSettings: (show: boolean) => void;
+  setShowInviteModal: (show: boolean) => void;
+  setShowAccessModal: (show: boolean) => void;
+  setShowTeamChat: (show: boolean) => void;
+  addTeam: (team: Team) => void;
+  updateTeam: (teamId: string, updates: Partial<Team>) => void;
+  removeTeam: (teamId: string) => void;
+}
+
+/**
+ * Task slice state for task management
+ */
+interface TaskSlice {
+  // Tasks
+  tasks: Task[];
+  tasksLoading: boolean;
+  taskFilters: TaskFilters;
+  // Selected task for detail view
+  selectedTask: Task | null;
+  taskComments: TaskComment[];
+  // Modal states
+  showTaskBoard: boolean;
+  showTaskDetail: boolean;
+  showTaskCreate: boolean;
+  // Actions
+  setTasks: (tasks: Task[]) => void;
+  addTask: (task: Task) => void;
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
+  removeTask: (taskId: string) => void;
+  setTasksLoading: (loading: boolean) => void;
+  setTaskFilters: (filters: TaskFilters) => void;
+  setSelectedTask: (task: Task | null) => void;
+  setTaskComments: (comments: TaskComment[]) => void;
+  setShowTaskBoard: (show: boolean) => void;
+  setShowTaskDetail: (show: boolean) => void;
+  setShowTaskCreate: (show: boolean) => void;
+}
+
+/**
+ * Activity slice state for activity feed
+ */
+interface ActivitySlice {
+  // Activity feed
+  activityFeed: ActivityLog[];
+  activityLoading: boolean;
+  activityHasMore: boolean;
+  activityFilters: ActivityFilters;
+  // Actions
+  setActivityFeed: (activities: ActivityLog[]) => void;
+  appendActivities: (activities: ActivityLog[]) => void;
+  prependActivity: (activity: ActivityLog) => void;
+  setActivityLoading: (loading: boolean) => void;
+  setActivityHasMore: (hasMore: boolean) => void;
+  setActivityFilters: (filters: ActivityFilters) => void;
+  clearActivityFeed: () => void;
+}
+
+/**
  * Complete store state combining all slices
  */
 export interface AppState
@@ -284,7 +381,10 @@ export interface AppState
     UISlice,
     DataSlice,
     DocumentationSlice,
-    FileStorageSlice {}
+    FileStorageSlice,
+    CollaborationSlice,
+    TaskSlice,
+    ActivitySlice {}
 
 // ============================================================================
 // STORE IMPLEMENTATION
@@ -528,6 +628,111 @@ export const useAppStore = create<AppState>()(
           return { selectedFiles: newSelection };
         }),
       clearFileSelection: () => set({ selectedFiles: new Set<string>() }),
+
+      // ========================================================================
+      // COLLABORATION SLICE
+      // ========================================================================
+      currentTeamId: null,
+      currentTeam: null,
+      teams: [],
+      teamsLoading: false,
+      currentAppAccess: null,
+      currentAppCollaborators: [],
+      onlineTeamMembers: [],
+      showTeamSettings: false,
+      showInviteModal: false,
+      showAccessModal: false,
+      showTeamChat: false,
+
+      setCurrentTeamId: (teamId) => set({ currentTeamId: teamId }),
+      setCurrentTeam: (team) => set({ currentTeam: team }),
+      setTeams: (teams) => set({ teams }),
+      setTeamsLoading: (loading) => set({ teamsLoading: loading }),
+      setCurrentAppAccess: (access) => set({ currentAppAccess: access }),
+      setCurrentAppCollaborators: (collaborators) => set({ currentAppCollaborators: collaborators }),
+      setOnlineTeamMembers: (members) => set({ onlineTeamMembers: members }),
+      setShowTeamSettings: (show) => set({ showTeamSettings: show }),
+      setShowInviteModal: (show) => set({ showInviteModal: show }),
+      setShowAccessModal: (show) => set({ showAccessModal: show }),
+      setShowTeamChat: (show) => set({ showTeamChat: show }),
+      addTeam: (team) =>
+        set((state) => ({
+          teams: [...state.teams, team],
+        })),
+      updateTeam: (teamId, updates) =>
+        set((state) => ({
+          teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...updates } : t)),
+          currentTeam:
+            state.currentTeam?.id === teamId
+              ? { ...state.currentTeam, ...updates }
+              : state.currentTeam,
+        })),
+      removeTeam: (teamId) =>
+        set((state) => ({
+          teams: state.teams.filter((t) => t.id !== teamId),
+          currentTeam: state.currentTeam?.id === teamId ? null : state.currentTeam,
+          currentTeamId: state.currentTeamId === teamId ? null : state.currentTeamId,
+        })),
+
+      // ========================================================================
+      // TASK SLICE
+      // ========================================================================
+      tasks: [],
+      tasksLoading: false,
+      taskFilters: {},
+      selectedTask: null,
+      taskComments: [],
+      showTaskBoard: false,
+      showTaskDetail: false,
+      showTaskCreate: false,
+
+      setTasks: (tasks) => set({ tasks }),
+      addTask: (task) =>
+        set((state) => ({
+          tasks: [...state.tasks, task],
+        })),
+      updateTask: (taskId, updates) =>
+        set((state) => ({
+          tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+          selectedTask:
+            state.selectedTask?.id === taskId
+              ? { ...state.selectedTask, ...updates }
+              : state.selectedTask,
+        })),
+      removeTask: (taskId) =>
+        set((state) => ({
+          tasks: state.tasks.filter((t) => t.id !== taskId),
+          selectedTask: state.selectedTask?.id === taskId ? null : state.selectedTask,
+        })),
+      setTasksLoading: (loading) => set({ tasksLoading: loading }),
+      setTaskFilters: (filters) => set({ taskFilters: filters }),
+      setSelectedTask: (task) => set({ selectedTask: task }),
+      setTaskComments: (comments) => set({ taskComments: comments }),
+      setShowTaskBoard: (show) => set({ showTaskBoard: show }),
+      setShowTaskDetail: (show) => set({ showTaskDetail: show }),
+      setShowTaskCreate: (show) => set({ showTaskCreate: show }),
+
+      // ========================================================================
+      // ACTIVITY SLICE
+      // ========================================================================
+      activityFeed: [],
+      activityLoading: false,
+      activityHasMore: true,
+      activityFilters: {},
+
+      setActivityFeed: (activities) => set({ activityFeed: activities }),
+      appendActivities: (activities) =>
+        set((state) => ({
+          activityFeed: [...state.activityFeed, ...activities],
+        })),
+      prependActivity: (activity) =>
+        set((state) => ({
+          activityFeed: [activity, ...state.activityFeed],
+        })),
+      setActivityLoading: (loading) => set({ activityLoading: loading }),
+      setActivityHasMore: (hasMore) => set({ activityHasMore: hasMore }),
+      setActivityFilters: (filters) => set({ activityFilters: filters }),
+      clearActivityFeed: () => set({ activityFeed: [], activityHasMore: true }),
     })),
     {
       name: 'app-store',
@@ -658,6 +863,56 @@ export const useDocumentationState = () =>
       isSavingDocumentation: state.isSavingDocumentation,
       showDocumentationPanel: state.showDocumentationPanel,
       documentationPanelTab: state.documentationPanelTab,
+    }))
+  );
+
+/**
+ * Select collaboration state
+ */
+export const useCollaborationState = () =>
+  useAppStore(
+    useShallow((state) => ({
+      currentTeamId: state.currentTeamId,
+      currentTeam: state.currentTeam,
+      teams: state.teams,
+      teamsLoading: state.teamsLoading,
+      currentAppAccess: state.currentAppAccess,
+      currentAppCollaborators: state.currentAppCollaborators,
+      onlineTeamMembers: state.onlineTeamMembers,
+      showTeamSettings: state.showTeamSettings,
+      showInviteModal: state.showInviteModal,
+      showAccessModal: state.showAccessModal,
+      showTeamChat: state.showTeamChat,
+    }))
+  );
+
+/**
+ * Select task state
+ */
+export const useTaskState = () =>
+  useAppStore(
+    useShallow((state) => ({
+      tasks: state.tasks,
+      tasksLoading: state.tasksLoading,
+      taskFilters: state.taskFilters,
+      selectedTask: state.selectedTask,
+      taskComments: state.taskComments,
+      showTaskBoard: state.showTaskBoard,
+      showTaskDetail: state.showTaskDetail,
+      showTaskCreate: state.showTaskCreate,
+    }))
+  );
+
+/**
+ * Select activity state
+ */
+export const useActivityState = () =>
+  useAppStore(
+    useShallow((state) => ({
+      activityFeed: state.activityFeed,
+      activityLoading: state.activityLoading,
+      activityHasMore: state.activityHasMore,
+      activityFilters: state.activityFilters,
     }))
   );
 
