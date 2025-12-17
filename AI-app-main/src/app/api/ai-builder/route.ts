@@ -1,0 +1,356 @@
+import { NextResponse } from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
+import { validateGeneratedCode, autoFixCode } from '@/utils/codeValidator';
+import {
+  analytics,
+  generateRequestId,
+  categorizeError,
+  PerformanceTracker,
+} from '@/utils/analytics';
+import { isMockAIEnabled, mockComponentResponse } from '@/utils/mockAI';
+import { logAPI } from '@/utils/debug';
+
+// Vercel serverless function config
+export const maxDuration = 300;
+export const dynamic = 'force-dynamic';
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+export async function POST(request: Request) {
+  // ============================================================================
+  // MOCK AI MODE - Return instant mock response if enabled
+  // ============================================================================
+  if (isMockAIEnabled()) {
+    logAPI('POST', '/api/ai-builder', { mock: true });
+    return NextResponse.json({
+      code: mockComponentResponse.code,
+      explanation: mockComponentResponse.explanation,
+      name: 'Mock Component',
+      _mock: true,
+      _mockWarning: 'Mock AI Mode is enabled. Set NEXT_PUBLIC_MOCK_AI=false for real AI.',
+    });
+  }
+
+  // ============================================================================
+  // ANALYTICS - Phase 4: Track request metrics
+  // ============================================================================
+  const requestId = generateRequestId();
+  const perfTracker = new PerformanceTracker();
+
+  try {
+    const { prompt, conversationHistory } = await request.json();
+    perfTracker.checkpoint('request_parsed');
+
+    // Log request start after parsing body
+    analytics.logRequestStart('ai-builder', requestId, {
+      hasConversationHistory: !!conversationHistory,
+    });
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.warn('Anthropic API key not configured, using demo mode');
+      return NextResponse.json({
+        code: `import { useState } from 'react';\n\nexport default function GeneratedComponent() {\n  const [value, setValue] = useState('');\n  \n  return (\n    <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-lg">\n      <h2 className="text-2xl font-bold mb-4 text-gray-800">Demo Component</h2>\n      <p className="text-sm text-gray-600 mb-4">Add your Anthropic API key to .env.local for full AI generation</p>\n      <input \n        value={value}\n        onChange={(e) => setValue(e.target.value)}\n        className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"\n        placeholder="Type something..."\n      />\n      <p className="mt-3 text-sm text-gray-500">You typed: {value}</p>\n    </div>\n  );\n}`,
+        explanation:
+          'This is a demo component. Configure your Anthropic API key (ANTHROPIC_API_KEY) in .env.local to enable full AI generation with Claude.',
+        name: 'Demo Component',
+      });
+    }
+
+    // Create a comprehensive system prompt for conversation-based generation
+    const systemPrompt = `You are an expert React/TypeScript component generator. Generate production-ready, modern React components through natural conversation.
+
+Rules:
+1. Use functional components with TypeScript
+2. Include proper TypeScript interfaces/types for reusability
+3. Use modern React hooks (useState, useEffect, etc.) ONLY when necessary
+4. Apply Tailwind CSS for styling
+5. Follow React best practices and patterns
+6. Include proper error handling and validation where needed
+7. Make components accessible (ARIA labels, semantic HTML)
+8. Keep components clean and modular
+
+CRITICAL FOR PREVIEW - Use this exact pattern:
+- Generate a default export function that returns PURE HTML with hardcoded values
+- Include the reusable component definition separately, but the default export should show it in action
+- NO props in the main return statement - use actual text values
+- Example structure:
+
+\`\`\`typescript
+import React from 'react';
+
+// Reusable component with props
+interface ButtonProps {
+  label: string;
+  onClick?: () => void;
+}
+
+const Button: React.FC<ButtonProps> = ({ label, onClick }) => {
+  return (
+    <button 
+      onClick={onClick}
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+    >
+      {label}
+    </button>
+  );
+};
+
+// Demo with hardcoded values for preview
+export default function Demo() {
+  return (
+    <div className="p-8 space-y-4">
+      <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Click Me
+      </button>
+      <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Submit
+      </button>
+    </div>
+  );
+}
+\`\`\`
+
+Notice: The Demo function returns plain HTML elements with hardcoded text like "Click Me" and "Submit", NOT {label} or props.
+
+Respond in this EXACT format using these delimiters:
+
+===NAME===
+Short component name (3-5 words)
+===EXPLANATION===
+Brief explanation of what you built and key features
+===CODE===
+The complete TypeScript/React component code here
+===END===
+
+CRITICAL RULES:
+- The default export Demo must have ZERO curly braces with variables - only hardcoded text values!
+- Use the EXACT delimiters shown above (===NAME===, ===EXPLANATION===, ===CODE===, ===END===)
+- Code goes between ===CODE=== and ===END===
+- Code can have any formatting - no escaping needed
+- Do NOT wrap in markdown code blocks
+- Do NOT add any text before ===NAME=== or after ===END===
+`;
+
+    // Build conversation context for Claude
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const messages: any[] = [];
+
+    // Add conversation history if provided
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      conversationHistory.forEach((msg: any) => {
+        if (msg.role === 'user') {
+          messages.push({ role: 'user', content: msg.content });
+        } else if (msg.role === 'assistant') {
+          messages.push({ role: 'assistant', content: msg.content });
+        }
+      });
+    }
+
+    // Add current user prompt
+    messages.push({ role: 'user', content: prompt });
+
+    perfTracker.checkpoint('prompt_built');
+
+    const modelName = 'claude-sonnet-4-5-20250929';
+
+    // Use streaming for better responsiveness and timeout handling
+    const stream = await anthropic.messages.stream({
+      model: modelName,
+      max_tokens: 16000, // Must be > budget_tokens (8000 thinking + 8000 response)
+      temperature: 1, // Required for extended thinking
+      thinking: {
+        type: 'enabled',
+        budget_tokens: 8000,
+      },
+      system: [
+        {
+          type: 'text',
+          text: systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: messages,
+    });
+
+    perfTracker.checkpoint('ai_request_sent');
+
+    // Collect the full response with timeout
+    let responseText = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cachedTokens = 0;
+    const timeout = 60000; // 60 seconds (increased for extended thinking)
+    const startTime = Date.now();
+
+    try {
+      for await (const chunk of stream) {
+        if (Date.now() - startTime > timeout) {
+          throw new Error(
+            'AI response timeout - the component generation was taking too long. Please try a simpler request or try again.'
+          );
+        }
+        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+          responseText += chunk.delta.text;
+        }
+        // Capture token usage from final message
+        if (chunk.type === 'message_stop') {
+          const finalMessage = await stream.finalMessage();
+          inputTokens = finalMessage.usage.input_tokens || 0;
+          outputTokens = finalMessage.usage.output_tokens || 0;
+          cachedTokens = finalMessage.usage.cache_read_input_tokens || 0;
+        }
+      }
+    } catch (streamError) {
+      console.error('Streaming error:', streamError);
+      analytics.logRequestError(requestId, streamError as Error, 'ai_error');
+      throw new Error(
+        streamError instanceof Error ? streamError.message : 'Failed to receive AI response'
+      );
+    }
+
+    perfTracker.checkpoint('ai_response_received');
+
+    // Log token usage
+    if (inputTokens > 0 || outputTokens > 0) {
+      analytics.logTokenUsage(requestId, inputTokens, outputTokens, cachedTokens);
+    }
+    if (!responseText) {
+      throw new Error('No response from Claude');
+    }
+
+    // Parse using delimiters - bulletproof method
+    const nameMatch = responseText.match(/===NAME===\s*([\s\S]*?)\s*===EXPLANATION===/);
+    const explanationMatch = responseText.match(/===EXPLANATION===\s*([\s\S]*?)\s*===CODE===/);
+    const codeMatch = responseText.match(/===CODE===\s*([\s\S]*?)\s*===END===/);
+
+    if (!nameMatch || !explanationMatch || !codeMatch) {
+      console.error('Failed to parse response');
+
+      analytics.logRequestError(
+        requestId,
+        'Failed to parse delimiter-based response',
+        'parsing_error',
+        {
+          modelUsed: modelName,
+          responseLength: responseText.length,
+        }
+      );
+
+      throw new Error('Invalid response format from AI. Please try again.');
+    }
+
+    const aiResponse = {
+      name: nameMatch[1].trim(),
+      explanation: explanationMatch[1].trim(),
+      code: codeMatch[1].trim(),
+    };
+
+    perfTracker.checkpoint('response_parsed');
+
+    // Ensure code is a string
+    if (aiResponse.code && typeof aiResponse.code === 'object') {
+      aiResponse.code = JSON.stringify(aiResponse.code);
+    }
+
+    // ============================================================================
+    // VALIDATION LAYER - Validate generated component code
+    // ============================================================================
+
+    // Assume TypeScript component (this route generates .tsx components)
+    const validation = await validateGeneratedCode(aiResponse.code, 'Component.tsx');
+
+    let validationWarnings;
+
+    if (!validation.valid) {
+      // Attempt auto-fix
+      const fixedCode = autoFixCode(aiResponse.code, validation.errors);
+      if (fixedCode !== aiResponse.code) {
+        aiResponse.code = fixedCode;
+
+        // Re-validate after fix
+        const revalidation = await validateGeneratedCode(fixedCode, 'Component.tsx');
+        if (!revalidation.valid) {
+          // Some errors couldn't be auto-fixed
+          validationWarnings = {
+            hasWarnings: true,
+            message: `Code validation detected ${revalidation.errors.length} potential issue(s). The component has been generated but may need manual review.`,
+            errors: revalidation.errors,
+          };
+        }
+      } else {
+        // No auto-fix possible
+        validationWarnings = {
+          hasWarnings: true,
+          message: `Code validation detected ${validation.errors.length} potential issue(s). The component has been generated but may need manual review.`,
+          errors: validation.errors,
+        };
+      }
+    }
+
+    perfTracker.checkpoint('validation_complete');
+
+    // Log validation to analytics
+    const totalErrors = validation.valid ? 0 : validation.errors.length;
+    const fixedErrors = validationWarnings
+      ? totalErrors - (validationWarnings.errors?.length || 0)
+      : totalErrors;
+
+    if (totalErrors > 0) {
+      analytics.logValidation(requestId, totalErrors, fixedErrors);
+    }
+
+    perfTracker.checkpoint('response_prepared');
+
+    // Log successful completion
+    analytics.logRequestComplete(requestId, {
+      modelUsed: modelName,
+      promptLength: Math.round(systemPrompt.length / 4),
+      responseLength: responseText.length,
+      validationRan: true,
+      validationIssuesFound: totalErrors,
+      validationIssuesFixed: fixedErrors,
+      metadata: {
+        componentName: aiResponse.name,
+        codeLength: aiResponse.code.length,
+      },
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      perfTracker.log('AI Builder Route');
+    }
+
+    return NextResponse.json({
+      ...aiResponse,
+      ...(validationWarnings && { validationWarnings }),
+    });
+  } catch (error) {
+    console.error('Error in AI builder route:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+
+    // Log error to analytics
+    analytics.logRequestError(requestId, error as Error, categorizeError(error as Error));
+
+    // If model not found, provide helpful error message
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      if (error.message.includes('model')) {
+        return NextResponse.json(
+          {
+            error: `Model not found: ${error.message}. Please check your Anthropic console at https://console.anthropic.com/ for available models.`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to process request' },
+      { status: 500 }
+    );
+  }
+}
