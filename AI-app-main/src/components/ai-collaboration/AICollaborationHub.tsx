@@ -21,6 +21,7 @@ import FeatureOwnershipPanel from './FeatureOwnershipPanel';
 import AIReviewPanel from './AIReviewPanel';
 import PromptTemplatesPanel from './PromptTemplatesPanel';
 import { ProjectArtifactsTab } from '../project/ProjectArtifactsTab';
+import { ProjectIntegrationTab } from './ProjectIntegrationTab';
 
 interface AICollaborationHubProps {
   appId: string;
@@ -42,7 +43,8 @@ type CollaborationTab =
   | 'planning'
   | 'ownership'
   | 'reviews'
-  | 'artifacts';
+  | 'artifacts'
+  | 'integration';
 
 const TABS: { key: CollaborationTab; label: string; icon: string; color: string }[] = [
   { key: 'decisions', label: 'Decisions', icon: '✓', color: 'purple' },
@@ -53,6 +55,7 @@ const TABS: { key: CollaborationTab; label: string; icon: string; color: string 
   { key: 'ownership', label: 'Ownership', icon: '👤', color: 'amber' },
   { key: 'reviews', label: 'Reviews', icon: '✓', color: 'emerald' },
   { key: 'artifacts', label: 'Artifacts', icon: '📦', color: 'sky' },
+  { key: 'integration', label: 'Integration', icon: '🔗', color: 'teal' },
 ];
 
 export default function AICollaborationHub({
@@ -398,6 +401,22 @@ export default function AICollaborationHub({
         ) : (
           <div className="flex items-center justify-center h-full text-gray-400">
             <p>Team required to view artifacts</p>
+          </div>
+        );
+
+      case 'integration':
+        return teamId ? (
+          <ProjectIntegrationTab
+            teamId={teamId}
+            currentUserId={currentUserId}
+            onUsePlan={(appConcept) => {
+              // Could set the unified plan as the active app concept
+              console.log('Use plan:', appConcept);
+            }}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            <p>Team required for plan integration</p>
           </div>
         );
 
