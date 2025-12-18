@@ -94,6 +94,12 @@ const ACTION_DESCRIPTIONS: Record<string, Record<string, string>> = {
     updated: 'updated documentation',
     exported: 'exported documentation',
   },
+  artifact: {
+    created: 'saved artifact',
+    updated: 'updated artifact',
+    deleted: 'deleted artifact',
+    archived: 'archived artifact',
+  },
 };
 
 // ============================================================================

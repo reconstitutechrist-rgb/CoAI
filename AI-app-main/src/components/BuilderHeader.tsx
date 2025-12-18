@@ -62,6 +62,10 @@ export interface BuilderHeaderProps {
   collaborationEnabled?: boolean;
   notificationCount?: number;
   onOpenCollaboration?: () => void;
+
+  // Save to Project
+  onSaveToProject?: () => void;
+  canSaveToProject?: boolean;
 }
 
 // ============================================================================
@@ -392,6 +396,8 @@ export function BuilderHeader({
   collaborationEnabled,
   notificationCount = 0,
   onOpenCollaboration,
+  onSaveToProject,
+  canSaveToProject,
 }: BuilderHeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const { theme, setTheme } = useThemeContext();
@@ -509,6 +515,18 @@ export function BuilderHeader({
             <SaveIcon size={16} />
             <span className="hidden lg:inline">{isSaving ? 'Saving...' : 'Save'}</span>
           </button>
+
+          {/* Save to Project */}
+          {onSaveToProject && canSaveToProject && (
+            <button
+              onClick={onSaveToProject}
+              className="linear-btn-secondary"
+              title="Save to Team Project"
+            >
+              <SaveIcon size={16} />
+              <span className="hidden lg:inline">Share</span>
+            </button>
+          )}
 
           {/* AI Collaboration */}
           {collaborationEnabled && (

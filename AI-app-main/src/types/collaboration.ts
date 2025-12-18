@@ -69,7 +69,8 @@ export type ActivityCategory =
   | 'team'
   | 'access'
   | 'chat'
-  | 'documentation';
+  | 'documentation'
+  | 'artifact';
 
 /**
  * Chat message types

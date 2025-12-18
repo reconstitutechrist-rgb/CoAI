@@ -14,6 +14,7 @@ export { StagingConsentModal } from './StagingConsentModal';
 export { CompareVersionsModal } from './CompareVersionsModal';
 export { PhasedBuildPanel } from './PhasedBuildPanel';
 export { NameAppModal } from './NameAppModal';
+export { SaveToProjectModal } from './SaveToProjectModal';
 
 // Re-export types
 export type { LibraryModalProps } from './LibraryModal';
@@ -25,3 +26,4 @@ export type { StagingConsentModalProps } from './StagingConsentModal';
 export type { CompareVersionsModalProps } from './CompareVersionsModal';
 export type { PhasedBuildPanelProps } from './PhasedBuildPanel';
 export type { NameAppModalProps } from './NameAppModal';
+export type { SaveToProjectModalProps } from './SaveToProjectModal';

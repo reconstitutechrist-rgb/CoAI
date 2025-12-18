@@ -20,6 +20,7 @@ import PhasePlanningPanel from './PhasePlanningPanel';
 import FeatureOwnershipPanel from './FeatureOwnershipPanel';
 import AIReviewPanel from './AIReviewPanel';
 import PromptTemplatesPanel from './PromptTemplatesPanel';
+import { ProjectArtifactsTab } from '../project/ProjectArtifactsTab';
 
 interface AICollaborationHubProps {
   appId: string;
@@ -40,7 +41,8 @@ type CollaborationTab =
   | 'handoffs'
   | 'planning'
   | 'ownership'
-  | 'reviews';
+  | 'reviews'
+  | 'artifacts';
 
 const TABS: { key: CollaborationTab; label: string; icon: string; color: string }[] = [
   { key: 'decisions', label: 'Decisions', icon: '✓', color: 'purple' },
@@ -50,6 +52,7 @@ const TABS: { key: CollaborationTab; label: string; icon: string; color: string 
   { key: 'planning', label: 'Planning', icon: '📋', color: 'indigo' },
   { key: 'ownership', label: 'Ownership', icon: '👤', color: 'amber' },
   { key: 'reviews', label: 'Reviews', icon: '✓', color: 'emerald' },
+  { key: 'artifacts', label: 'Artifacts', icon: '📦', color: 'sky' },
 ];
 
 export default function AICollaborationHub({
@@ -377,6 +380,25 @@ export default function AICollaborationHub({
               await applyReviewChanges(reviewId);
             }}
           />
+        );
+
+      case 'artifacts':
+        return teamId ? (
+          <ProjectArtifactsTab
+            teamId={teamId}
+            onViewArtifact={(artifact) => {
+              // Could open a detail modal or navigate to artifact view
+              console.log('View artifact:', artifact);
+            }}
+            onContinueArtifact={(artifact) => {
+              // Could restore state and navigate to appropriate tool
+              console.log('Continue artifact:', artifact);
+            }}
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400">
+            <p>Team required to view artifacts</p>
+          </div>
         );
 
       default:

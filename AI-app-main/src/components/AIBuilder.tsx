@@ -49,6 +49,7 @@ import {
   CompareVersionsModal,
   PhasedBuildPanel,
   NameAppModal,
+  SaveToProjectModal,
 } from "./modals";
 
 // Build system components
@@ -67,6 +68,7 @@ import { useStreamingGeneration } from "@/hooks/useStreamingGeneration";
 import { useSmartContext } from "@/hooks/useSmartContext";
 import { useProjectDocumentation } from "@/hooks/useProjectDocumentation";
 import { useDebateChat } from "@/hooks/useDebateChat";
+import { useProjectArtifacts } from "@/hooks/useProjectArtifacts";
 
 // Documentation components
 import { ProjectDocumentationPanel } from "./documentation";
@@ -97,6 +99,11 @@ import type {
   DynamicPhasePlan,
   PhaseExecutionResult,
 } from "../types/dynamicPhases";
+import type {
+  ArtifactType,
+  AIBuilderPlanContent,
+  AIBuilderAppContent,
+} from "../types/projectArtifacts";
 import { buildPhaseExecutionPrompt } from "../services/PhaseExecutionManager";
 
 // Utils
@@ -191,7 +198,12 @@ function formatPhaseContent(phases: PhaseApiData[]): string {
 // MAIN COMPONENT
 // ============================================================================
 
-export default function AIBuilder() {
+interface AIBuilderProps {
+  /** Team ID for saving artifacts to project (optional) */
+  teamId?: string;
+}
+
+export default function AIBuilder({ teamId }: AIBuilderProps = {}) {
   // Authentication
   const { user, sessionReady } = useAuth();
 
@@ -316,6 +328,10 @@ export default function AIBuilder() {
   const [showCollaboration, setShowCollaboration] = useState(false);
   const [collaborationNotificationCount, setCollaborationNotificationCount] =
     useState(0);
+
+  // Save to Project state
+  const [showSaveToProjectModal, setShowSaveToProjectModal] = useState(false);
+  const [isSavingToProject, setIsSavingToProject] = useState(false);
 
   // Initialize StorageService
   const [storageService] = useState(() => {
@@ -1965,6 +1981,114 @@ export default function AIBuilder() {
     URL.revokeObjectURL(url);
   }, [currentComponent]);
 
+  // Handle save to project
+  const handleSaveToProject = useCallback(
+    async (data: { name: string; description?: string; status: "draft" | "published" }) => {
+      if (!teamId || !user) return;
+
+      setIsSavingToProject(true);
+
+      try {
+        // Determine artifact type based on current state
+        const artifactType: ArtifactType =
+          currentMode === "PLAN" || !currentComponent
+            ? "ai_builder_plan"
+            : "ai_builder_app";
+
+        // Build content based on type
+        let content: AIBuilderPlanContent | AIBuilderAppContent;
+
+        if (artifactType === "ai_builder_plan") {
+          content = {
+            appConcept: appConcept || {
+              name: data.name,
+              description: data.description || "",
+              purpose: "",
+              targetUsers: "",
+              coreFeatures: [],
+              uiPreferences: { style: "modern", colorScheme: "dark", layout: "single-page" },
+              technical: { needsAuth: false, needsDatabase: false, needsAPI: false, needsFileUpload: false, needsRealtime: false },
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+            conversationContext: chatMessages.map((m) => `${m.role}: ${m.content}`).join("\n"),
+            wizardState: {
+              step: wizardState.isComplete ? 5 : 1,
+              completedSteps: wizardState.isComplete ? [1, 2, 3, 4, 5] : [],
+            },
+            messageCount: chatMessages.length,
+          } as AIBuilderPlanContent;
+        } else {
+          // Parse generated files from current component
+          let generatedFiles: Array<{ path: string; content: string; language: string }> = [];
+          try {
+            const appData = JSON.parse(currentComponent!.code);
+            if (appData.files) {
+              generatedFiles = Object.entries(appData.files).map(([path, content]) => ({
+                path,
+                content: content as string,
+                language: path.endsWith(".tsx") || path.endsWith(".ts") ? "typescript" : "javascript",
+              }));
+            }
+          } catch {
+            generatedFiles = [{ path: "app.tsx", content: currentComponent!.code, language: "typescript" }];
+          }
+
+          content = {
+            appConcept: appConcept || {
+              name: currentComponent!.name,
+              description: currentComponent!.description,
+              purpose: "",
+              targetUsers: "",
+              coreFeatures: [],
+              uiPreferences: { style: "modern", colorScheme: "dark", layout: "single-page" },
+              technical: { needsAuth: false, needsDatabase: false, needsAPI: false, needsFileUpload: false, needsRealtime: false },
+              createdAt: currentComponent!.createdAt,
+              updatedAt: new Date().toISOString(),
+            },
+            generatedFiles,
+            version: "1.0.0",
+            buildStatus: "completed",
+            phaseProgress: dynamicPhasePlan
+              ? {
+                  current: dynamicPhasePlan.phases.length,
+                  total: dynamicPhasePlan.phases.length,
+                  completed: dynamicPhasePlan.phases.map((_, i) => i + 1),
+                }
+              : undefined,
+          } as AIBuilderAppContent;
+        }
+
+        // Call API to create artifact
+        const response = await fetch("/api/project-artifacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            teamId,
+            name: data.name,
+            description: data.description,
+            artifactType,
+            status: data.status,
+            content,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || "Failed to save artifact");
+        }
+
+        setShowSaveToProjectModal(false);
+      } catch (error) {
+        console.error("Error saving to project:", error);
+        throw error; // Re-throw to let modal handle the error display
+      } finally {
+        setIsSavingToProject(false);
+      }
+    },
+    [teamId, user, currentMode, currentComponent, appConcept, chatMessages, wizardState, dynamicPhasePlan]
+  );
+
   // Filtered components - memoized to avoid recalculating on every render
   const filteredComponents = useMemo(
     () =>
@@ -2772,6 +2896,8 @@ export default function AIBuilder() {
           collaborationEnabled={true}
           notificationCount={collaborationNotificationCount}
           onOpenCollaboration={() => setShowCollaboration(!showCollaboration)}
+          onSaveToProject={() => setShowSaveToProjectModal(true)}
+          canSaveToProject={!!teamId && !!user}
         />
 
         {/* Tab Navigation */}
@@ -3306,6 +3432,16 @@ export default function AIBuilder() {
             generatedCode={dynamicBuildPhases.accumulatedCode}
           />
         )}
+
+        {/* Save to Project Modal */}
+        <SaveToProjectModal
+          isOpen={showSaveToProjectModal}
+          onClose={() => setShowSaveToProjectModal(false)}
+          onSave={handleSaveToProject}
+          artifactType={currentMode === "PLAN" || !currentComponent ? "ai_builder_plan" : "ai_builder_app"}
+          defaultName={currentComponent?.name || appConcept?.name || ""}
+          isLoading={isSavingToProject}
+        />
 
         {/* Project Documentation Panel */}
         <ProjectDocumentationPanel />
