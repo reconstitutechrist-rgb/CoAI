@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * AIBuilder - Refactored Orchestrator Component
@@ -13,24 +13,30 @@
  * All functionality is preserved from the original implementation.
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAppStore, type MainView } from '@/store/useAppStore';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAppStore, type MainView } from "@/store/useAppStore";
 
 // Extracted components
-import { ChatPanel } from './ChatPanel';
-import { PreviewPanel } from './PreviewPanel';
-import { ToastProvider } from './Toast';
-import NaturalConversationWizard from './NaturalConversationWizard';
-import LayoutBuilderWizard from './LayoutBuilderWizard';
-import SettingsPage from './SettingsPage';
-import BuilderHeader from './BuilderHeader';
-import TabNavigation from './TabNavigation';
-import AICollaborationHub from './ai-collaboration/AICollaborationHub';
-import type { BuilderMode } from '@/types/aiCollaboration';
+import { ChatPanel } from "./ChatPanel";
+import { PreviewPanel } from "./PreviewPanel";
+import { ToastProvider } from "./Toast";
+import NaturalConversationWizard from "./NaturalConversationWizard";
+import LayoutBuilderWizard from "./LayoutBuilderWizard";
+import SettingsPage from "./SettingsPage";
+import BuilderHeader from "./BuilderHeader";
+import TabNavigation from "./TabNavigation";
+import AICollaborationHub from "./ai-collaboration/AICollaborationHub";
+import type { BuilderMode } from "@/types/aiCollaboration";
 
 // UI components
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './ui';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "./ui";
 
 // Modal components
 import {
@@ -43,10 +49,10 @@ import {
   CompareVersionsModal,
   PhasedBuildPanel,
   NameAppModal,
-} from './modals';
+} from "./modals";
 
 // Build system components
-import { PhaseDetailView } from './build';
+import { PhaseDetailView } from "./build";
 
 // Custom hooks
 import {
@@ -55,24 +61,29 @@ import {
   useVersionControl,
   useKeyboardShortcuts,
   useMessageSender,
-} from '@/hooks';
-import { useDynamicBuildPhases } from '@/hooks/useDynamicBuildPhases';
-import { useStreamingGeneration } from '@/hooks/useStreamingGeneration';
-import { useSmartContext } from '@/hooks/useSmartContext';
-import { useProjectDocumentation } from '@/hooks/useProjectDocumentation';
+} from "@/hooks";
+import { useDynamicBuildPhases } from "@/hooks/useDynamicBuildPhases";
+import { useStreamingGeneration } from "@/hooks/useStreamingGeneration";
+import { useSmartContext } from "@/hooks/useSmartContext";
+import { useProjectDocumentation } from "@/hooks/useProjectDocumentation";
+import { useDebateChat } from "@/hooks/useDebateChat";
 
 // Documentation components
-import { ProjectDocumentationPanel } from './documentation';
+import { ProjectDocumentationPanel } from "./documentation";
 
 // Context Compression
 import {
   compressConversation,
   buildCompressedContext,
   needsCompression,
-} from '@/utils/contextCompression';
+} from "@/utils/contextCompression";
 
 // Types
-import type { AppConcept, ImplementationPlan, BuildPhase } from '../types/appConcept';
+import type {
+  AppConcept,
+  ImplementationPlan,
+  BuildPhase,
+} from "../types/appConcept";
 import type {
   GeneratedComponent,
   ChatMessage,
@@ -80,10 +91,13 @@ import type {
   StagePlan,
   Phase,
   PendingDiff,
-} from '../types/aiBuilderTypes';
-import type { PhaseId } from '../types/buildPhases';
-import type { DynamicPhasePlan, PhaseExecutionResult } from '../types/dynamicPhases';
-import { buildPhaseExecutionPrompt } from '../services/PhaseExecutionManager';
+} from "../types/aiBuilderTypes";
+import type { PhaseId } from "../types/buildPhases";
+import type {
+  DynamicPhasePlan,
+  PhaseExecutionResult,
+} from "../types/dynamicPhases";
+import { buildPhaseExecutionPrompt } from "../services/PhaseExecutionManager";
 
 // Utils
 import {
@@ -91,14 +105,14 @@ import {
   downloadBlob,
   parseAppFiles,
   getDeploymentInstructions,
-} from '../utils/exportApp';
-import { captureLayoutPreview } from '../utils/screenshotCapture';
-import type { LayoutDesign, DesignChange } from '../types/layoutDesign';
+} from "../utils/exportApp";
+import { captureLayoutPreview } from "../utils/screenshotCapture";
+import type { LayoutDesign, DesignChange } from "../types/layoutDesign";
 
 // Services
-import { createClient } from '@/utils/supabase/client';
-import { StorageService } from '@/services/StorageService';
-import { StorageAnalyticsService } from '@/services/StorageAnalytics';
+import { createClient } from "@/utils/supabase/client";
+import { StorageService } from "@/services/StorageService";
+import { StorageAnalyticsService } from "@/services/StorageAnalytics";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -109,7 +123,7 @@ import { StorageAnalyticsService } from '@/services/StorageAnalytics';
  * Uses crypto.randomUUID() with fallback for older environments
  */
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   // Fallback for environments without crypto.randomUUID
@@ -121,8 +135,8 @@ function generateId(): string {
  */
 function getWelcomeMessage(): ChatMessage {
   return {
-    id: 'welcome',
-    role: 'system',
+    id: "welcome",
+    role: "system",
     content:
       "👋 Hi! I'm your AI App Builder.\n\n🎯 **How It Works:**\n\n**💭 PLAN Mode** (Current):\n• Discuss what you want to build\n• Design requirements and architecture\n• No code - just planning and roadmapping\n\n**⚡ ACT Mode:**\n• Generates working code from our plan\n• Modifies apps with surgical precision\n• Real-time streaming progress\n\n**🔒 Smart Protection:**\n• Every change saved to version history\n• One-click undo/redo anytime\n• Review changes before applying\n\n**✨ Pro Features:**\n🧙‍♂️ Use Wizards for guided planning • 🏗️ Build in phases • 🖼️ Upload design inspiration • 📦 Export & deploy\n\n💡 **Start by telling me what you want to build, and we'll plan it together!**",
     timestamp: new Date().toISOString(),
@@ -133,8 +147,8 @@ function getWelcomeMessage(): ChatMessage {
  * Extract component name from user prompt
  */
 function extractComponentName(prompt: string): string {
-  const words = prompt.split(' ').slice(0, 3).join(' ');
-  return words.length > 30 ? words.slice(0, 27) + '...' : words;
+  const words = prompt.split(" ").slice(0, 3).join(" ");
+  return words.length > 30 ? words.slice(0, 27) + "..." : words;
 }
 
 /**
@@ -154,21 +168,23 @@ interface PhaseApiData {
  */
 function formatPhaseContent(phases: PhaseApiData[]): string {
   if (!Array.isArray(phases) || phases.length === 0) {
-    return 'No phases defined';
+    return "No phases defined";
   }
 
   return phases
     .map((phase, index) => {
       const phaseNumber = phase.number ?? index + 1;
-      const phaseName = phase.name ?? 'Unnamed Phase';
-      const phaseDescription = phase.description ?? '';
+      const phaseName = phase.name ?? "Unnamed Phase";
+      const phaseDescription = phase.description ?? "";
       const features = Array.isArray(phase.features)
-        ? phase.features.map((f) => `  • ${f}`).join('\n')
-        : '';
+        ? phase.features.map((f) => `  • ${f}`).join("\n")
+        : "";
 
-      return `**Phase ${phaseNumber}: ${phaseName}**\n${phaseDescription}${features ? '\n' + features : ''}`;
+      return `**Phase ${phaseNumber}: ${phaseName}**\n${phaseDescription}${
+        features ? "\n" + features : ""
+      }`;
     })
-    .join('\n\n');
+    .join("\n\n");
 }
 
 // ============================================================================
@@ -274,7 +290,7 @@ export default function AIBuilder() {
   // ============================================================================
   // LOCAL STATE (refs, computed values, etc)
   // ============================================================================
-  const previousModeRef = useRef<'PLAN' | 'ACT'>('PLAN');
+  const previousModeRef = useRef<"PLAN" | "ACT">("PLAN");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Smart Conversations: Wizard state for PLAN mode
@@ -293,11 +309,13 @@ export default function AIBuilder() {
   });
 
   // Dynamic Phase Generation state
-  const [dynamicPhasePlan, setDynamicPhasePlan] = useState<DynamicPhasePlan | null>(null);
+  const [dynamicPhasePlan, setDynamicPhasePlan] =
+    useState<DynamicPhasePlan | null>(null);
 
   // AI Collaboration state
   const [showCollaboration, setShowCollaboration] = useState(false);
-  const [collaborationNotificationCount, setCollaborationNotificationCount] = useState(0);
+  const [collaborationNotificationCount, setCollaborationNotificationCount] =
+    useState(0);
 
   // Initialize StorageService
   const [storageService] = useState(() => {
@@ -381,7 +399,7 @@ export default function AIBuilder() {
     onClearImage: () => {
       setUploadedImage(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     },
   });
@@ -389,18 +407,64 @@ export default function AIBuilder() {
   // Streaming generation hook for real-time progress
   const streaming = useStreamingGeneration({
     onStart: () => {
-      setGenerationProgress('Starting generation...');
+      setGenerationProgress("Starting generation...");
     },
     onFileStart: (filePath) => {
-      setGenerationProgress(`Generating ${filePath.split('/').pop()}...`);
+      setGenerationProgress(`Generating ${filePath.split("/").pop()}...`);
     },
     onComplete: () => {
       // Generation complete
     },
     onError: (message) => {
-      console.error('Streaming error:', message);
+      console.error("Streaming error:", message);
     },
   });
+
+  // AI Debate hook for collaborative multi-model discussions
+  const debate = useDebateChat({
+    onDebateComplete: (session) => {
+      // Add a system message showing the debate concluded
+      const notification: ChatMessage = {
+        id: generateId(),
+        role: "system",
+        content: `🤝 **AI Debate Completed**\n\n${
+          session.consensus?.summary || "The models reached a consensus."
+        }`,
+        timestamp: new Date().toISOString(),
+      };
+      setChatMessages((prev) => [...prev, notification]);
+    },
+    onError: (error) => {
+      console.error("Debate error:", error);
+    },
+  });
+
+  // State for implementing consensus
+  const [isImplementingConsensus, setIsImplementingConsensus] = useState(false);
+
+  // Handle implementing the consensus from a debate
+  const handleImplementConsensus = useCallback(async () => {
+    if (!debate.consensus) return;
+
+    setIsImplementingConsensus(true);
+    try {
+      // Build an implementation prompt from the consensus
+      const implementationPrompt = `Please implement the following consensus from our AI debate:\n\n**Summary:** ${
+        debate.consensus.summary
+      }\n\n**Action Items:**\n${debate.consensus.actionItems
+        .map((item, i) => `${i + 1}. ${item.action} (${item.priority})`)
+        .join("\n")}`;
+
+      // Switch to ACT mode and send the implementation request
+      setCurrentMode("ACT");
+      setUserInput(implementationPrompt);
+
+      // Clear the debate
+      debate.clearDebate();
+    } finally {
+      setIsImplementingConsensus(false);
+    }
+  }, [debate, setCurrentMode, setUserInput]);
 
   // Dynamic build phases hook (replaces useBuildPhases)
   const dynamicBuildPhases = useDynamicBuildPhases({
@@ -412,7 +476,7 @@ export default function AIBuilder() {
     onPhaseStart: (phase) => {
       const notification: ChatMessage = {
         id: generateId(),
-        role: 'system',
+        role: "system",
         content: `🚀 **Starting Phase ${phase.number}: ${phase.name}**\n\n${phase.description}`,
         timestamp: new Date().toISOString(),
       };
@@ -429,10 +493,14 @@ export default function AIBuilder() {
     onPhaseComplete: (phase, result) => {
       const notification: ChatMessage = {
         id: generateId(),
-        role: 'system',
+        role: "system",
         content: result.success
-          ? `✅ **Phase ${phase.number} Complete!**\n\nImplemented ${result.implementedFeatures.length} features in ${(result.duration / 1000).toFixed(1)}s`
-          : `⚠️ **Phase ${phase.number} had issues**\n\n${result.errors?.join('\n') || 'Unknown error'}`,
+          ? `✅ **Phase ${phase.number} Complete!**\n\nImplemented ${
+              result.implementedFeatures.length
+            } features in ${(result.duration / 1000).toFixed(1)}s`
+          : `⚠️ **Phase ${phase.number} had issues**\n\n${
+              result.errors?.join("\n") || "Unknown error"
+            }`,
         timestamp: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, notification]);
@@ -450,7 +518,7 @@ export default function AIBuilder() {
     onBuildComplete: (plan) => {
       const notification: ChatMessage = {
         id: generateId(),
-        role: 'system',
+        role: "system",
         content: `🎉 **Build Complete!**\n\nAll ${plan.totalPhases} phases finished. Your app is ready!`,
         timestamp: new Date().toISOString(),
       };
@@ -463,18 +531,22 @@ export default function AIBuilder() {
       // This extracts preferences, decisions, and patterns for future builds
       // Uses useSmartContext hook which handles initialization and error cases
       smartContext.storeConversationMemories(chatMessages).catch((err) => {
-        console.warn('[SemanticMemory] Failed to store memories:', err);
+        console.warn("[SemanticMemory] Failed to store memories:", err);
       });
     },
     onBuildFailed: (error, phase) => {
       // Record build failure in documentation
-      projectDocumentation.failBuild(`${phase ? `Phase ${phase.number}: ` : ''}${error.message}`);
+      projectDocumentation.failBuild(
+        `${phase ? `Phase ${phase.number}: ` : ""}${error.message}`
+      );
     },
     onError: (error, phase) => {
       const notification: ChatMessage = {
         id: generateId(),
-        role: 'system',
-        content: `❌ **Build Error${phase ? ` in Phase ${phase.number}` : ''}**\n\n${error.message}`,
+        role: "system",
+        content: `❌ **Build Error${
+          phase ? ` in Phase ${phase.number}` : ""
+        }**\n\n${error.message}`,
         timestamp: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, notification]);
@@ -487,13 +559,16 @@ export default function AIBuilder() {
     (
       messages: ChatMessage[],
       maxTokens = 50000
-    ): { history: Array<{ role: 'user' | 'assistant'; content: string }>; summary?: string } => {
+    ): {
+      history: Array<{ role: "user" | "assistant"; content: string }>;
+      summary?: string;
+    } => {
       // Filter out system messages and map to API format
       const filteredMessages = messages
-        .filter((m) => m.role !== 'system')
+        .filter((m) => m.role !== "system")
         .map((m) => ({
           id: m.id,
-          role: m.role as 'user' | 'assistant',
+          role: m.role as "user" | "assistant",
           content: m.content,
           timestamp: m.timestamp,
         }));
@@ -507,18 +582,20 @@ export default function AIBuilder() {
 
         return {
           history: compressed.recentMessages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
+            role: m.role as "user" | "assistant",
             content: m.content,
           })),
           summary:
-            compressed.summary.messageCount > 0 ? buildCompressedContext(compressed) : undefined,
+            compressed.summary.messageCount > 0
+              ? buildCompressedContext(compressed)
+              : undefined,
         };
       }
 
       // No compression needed - return last 50 messages
       return {
         history: filteredMessages.slice(-50).map((m) => ({
-          role: m.role as 'user' | 'assistant',
+          role: m.role as "user" | "assistant",
           content: m.content,
         })),
       };
@@ -535,7 +612,7 @@ export default function AIBuilder() {
       query: string,
       maxTokens = 50000
     ): Promise<{
-      history: Array<{ role: 'user' | 'assistant'; content: string }>;
+      history: Array<{ role: "user" | "assistant"; content: string }>;
       contextSummary?: string;
       memoriesContext?: string;
     }> => {
@@ -549,7 +626,7 @@ export default function AIBuilder() {
 
         return {
           history: result.compressed.recentMessages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
+            role: m.role as "user" | "assistant",
             content: m.content,
           })),
           contextSummary:
@@ -568,7 +645,11 @@ export default function AIBuilder() {
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [smartContext.isInitialized, smartContext.isMemoryEnabled, compressForACTMode]
+    [
+      smartContext.isInitialized,
+      smartContext.isMemoryEnabled,
+      compressForACTMode,
+    ]
   );
 
   // Handle escape to close open modals/panels in priority order
@@ -616,7 +697,7 @@ export default function AIBuilder() {
     },
     onEscape: handleEscapeKey,
     enabled: !!currentComponent,
-    context: 'builder',
+    context: "builder",
   });
 
   // ============================================================================
@@ -635,20 +716,20 @@ export default function AIBuilder() {
     const previousMode = previousModeRef.current;
     previousModeRef.current = currentMode;
 
-    if (previousMode === 'PLAN' && currentMode === 'ACT') {
+    if (previousMode === "PLAN" && currentMode === "ACT") {
       const transitionMessage: ChatMessage = {
         id: generateId(),
-        role: 'system',
+        role: "system",
         content: `⚡ **Switched to ACT Mode**\n\nReady to build! I'll read the plan we discussed and implement it.\n\n**To build:** Type "build it" or "implement the plan" and I'll create your app based on our conversation.`,
         timestamp: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, transitionMessage]);
     }
 
-    if (previousMode === 'ACT' && currentMode === 'PLAN') {
+    if (previousMode === "ACT" && currentMode === "PLAN") {
       const transitionMessage: ChatMessage = {
         id: generateId(),
-        role: 'system',
+        role: "system",
         content: `💭 **Switched to PLAN Mode**\n\nLet's plan your next feature or discuss improvements. I won't generate code in this mode - we'll design the requirements first.`,
         timestamp: new Date().toISOString(),
       };
@@ -675,8 +756,8 @@ export default function AIBuilder() {
 
           // Load from localStorage
           let localComponents: GeneratedComponent[] = [];
-          if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem('ai_components');
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("ai_components");
             if (stored) {
               try {
                 localComponents = JSON.parse(stored);
@@ -692,26 +773,35 @@ export default function AIBuilder() {
           dbComponents.forEach((comp) => mergedMap.set(comp.id, comp));
 
           const mergedComponents = Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
 
           setComponents(mergedComponents);
 
           // Cache in localStorage
-          if (typeof window !== 'undefined') {
+          if (typeof window !== "undefined") {
             try {
-              localStorage.setItem('ai_components', JSON.stringify(mergedComponents));
+              localStorage.setItem(
+                "ai_components",
+                JSON.stringify(mergedComponents)
+              );
 
               // Restore last active app
-              const lastAppId = localStorage.getItem('current_app_id');
+              const lastAppId = localStorage.getItem("current_app_id");
               if (lastAppId && mergedComponents.length > 0) {
-                const lastApp = mergedComponents.find((c) => c.id === lastAppId);
+                const lastApp = mergedComponents.find(
+                  (c) => c.id === lastAppId
+                );
                 if (lastApp) {
                   setCurrentComponent(lastApp);
-                  if (lastApp.conversationHistory && lastApp.conversationHistory.length > 0) {
+                  if (
+                    lastApp.conversationHistory &&
+                    lastApp.conversationHistory.length > 0
+                  ) {
                     setChatMessages(lastApp.conversationHistory);
                   }
-                  setActiveTab('preview');
+                  setActiveTab("preview");
                 }
               }
             } catch {
@@ -720,24 +810,27 @@ export default function AIBuilder() {
           }
         } else {
           // Load from localStorage only
-          if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem('ai_components');
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("ai_components");
             if (stored) {
               try {
                 const parsedComponents = JSON.parse(stored);
                 setComponents(parsedComponents);
 
-                const lastAppId = localStorage.getItem('current_app_id');
+                const lastAppId = localStorage.getItem("current_app_id");
                 if (lastAppId && parsedComponents.length > 0) {
                   const lastApp = parsedComponents.find(
                     (c: GeneratedComponent) => c.id === lastAppId
                   );
                   if (lastApp) {
                     setCurrentComponent(lastApp);
-                    if (lastApp.conversationHistory && lastApp.conversationHistory.length > 0) {
+                    if (
+                      lastApp.conversationHistory &&
+                      lastApp.conversationHistory.length > 0
+                    ) {
                       setChatMessages(lastApp.conversationHistory);
                     }
-                    setActiveTab('preview');
+                    setActiveTab("preview");
                   }
                 }
               } catch {
@@ -747,8 +840,8 @@ export default function AIBuilder() {
           }
         }
       } catch (error) {
-        console.error('Error in loadApps:', error);
-        setDbSyncError('Failed to load apps');
+        console.error("Error in loadApps:", error);
+        setDbSyncError("Failed to load apps");
       } finally {
         setLoadingApps(false);
       }
@@ -766,9 +859,9 @@ export default function AIBuilder() {
 
   // Save components to localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && components.length > 0) {
+    if (typeof window !== "undefined" && components.length > 0) {
       try {
-        localStorage.setItem('ai_components', JSON.stringify(components));
+        localStorage.setItem("ai_components", JSON.stringify(components));
       } catch {
         // Failed to save components to localStorage
       }
@@ -777,9 +870,9 @@ export default function AIBuilder() {
 
   // Save current app ID to localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && currentComponent) {
+    if (typeof window !== "undefined" && currentComponent) {
       try {
-        localStorage.setItem('current_app_id', currentComponent.id);
+        localStorage.setItem("current_app_id", currentComponent.id);
       } catch {
         // Failed to save current app ID to localStorage
       }
@@ -788,7 +881,7 @@ export default function AIBuilder() {
 
   // Load files when storage tab is active
   useEffect(() => {
-    if (user && showLibrary && contentTab === 'files') {
+    if (user && showLibrary && contentTab === "files") {
       fileStorage.loadFiles();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -809,11 +902,11 @@ export default function AIBuilder() {
           // Map dynamic phase status to StagePlan PhaseStatus
           // StagePlan only supports: 'pending' | 'building' | 'complete'
           status:
-            p.status === 'completed'
-              ? ('complete' as const)
-              : p.status === 'in-progress'
-                ? ('building' as const)
-                : ('pending' as const), // failed/skipped/pending all map to pending
+            p.status === "completed"
+              ? ("complete" as const)
+              : p.status === "in-progress"
+              ? ("building" as const)
+              : ("pending" as const), // failed/skipped/pending all map to pending
         })),
       });
     }
@@ -854,28 +947,31 @@ export default function AIBuilder() {
     // Create documentation for this app
     const createDocs = async () => {
       const doc = await projectDocumentation.getOrCreateDocumentation(
-        currentComponent.name || 'Untitled App'
+        currentComponent.name || "Untitled App"
       );
 
       if (doc) {
         // If we have a pending concept from wizard, capture it
         if (appConcept && appConcept.name) {
           await projectDocumentation.captureConceptSnapshot(appConcept, {
-            source: 'wizard',
+            source: "wizard",
           });
         }
 
         // If we have a pending plan from wizard, it will be captured
         // when dynamicBuildPhases.initializePlan is called (via onPlanInitialized callback)
         // But if plan already exists, capture it now
-        if (dynamicPhasePlan && !projectDocumentation.documentation?.planSnapshot) {
+        if (
+          dynamicPhasePlan &&
+          !projectDocumentation.documentation?.planSnapshot
+        ) {
           await projectDocumentation.capturePlanSnapshot(dynamicPhasePlan);
         }
       }
     };
 
     createDocs().catch((err) => {
-      console.error('Failed to auto-create documentation:', err);
+      console.error("Failed to auto-create documentation:", err);
     });
   }, [
     currentComponent?.id,
@@ -896,23 +992,25 @@ export default function AIBuilder() {
 
     // If we're switching away from layout view and have a layout design, capture it
     if (
-      previousView === 'layout' &&
-      activeView !== 'layout' &&
+      previousView === "layout" &&
+      activeView !== "layout" &&
       currentComponent?.id &&
       projectDocumentation.documentation
     ) {
       const currentLayoutDesign = useAppStore.getState().currentLayoutDesign;
       if (currentLayoutDesign) {
         // Capture layout snapshot (screenshot capture would be added separately if needed)
-        projectDocumentation.captureLayoutSnapshot(currentLayoutDesign).catch((err) => {
-          console.error('Failed to capture layout snapshot:', err);
-        });
+        projectDocumentation
+          .captureLayoutSnapshot(currentLayoutDesign)
+          .catch((err) => {
+            console.error("Failed to capture layout snapshot:", err);
+          });
       }
     }
   }, [activeView, currentComponent?.id, projectDocumentation]);
 
   // Track previous mode for capturing when switching PLAN -> ACT
-  const previousModeForDocRef = useRef<'PLAN' | 'ACT'>(currentMode);
+  const previousModeForDocRef = useRef<"PLAN" | "ACT">(currentMode);
 
   // Capture builder chat context when switching from PLAN to ACT mode
   useEffect(() => {
@@ -921,8 +1019,8 @@ export default function AIBuilder() {
 
     // If switching from PLAN to ACT and have documentation, capture the planning context
     if (
-      previousMode === 'PLAN' &&
-      currentMode === 'ACT' &&
+      previousMode === "PLAN" &&
+      currentMode === "ACT" &&
       projectDocumentation.documentation &&
       chatMessages.length > 1
     ) {
@@ -932,7 +1030,7 @@ export default function AIBuilder() {
           description: wizardState.description,
         })
         .catch((err) => {
-          console.error('Failed to capture builder chat snapshot:', err);
+          console.error("Failed to capture builder chat snapshot:", err);
         });
     }
   }, [
@@ -946,7 +1044,7 @@ export default function AIBuilder() {
   // Auto-capture builder chat every 15 messages in PLAN mode
   useEffect(() => {
     if (
-      currentMode === 'PLAN' &&
+      currentMode === "PLAN" &&
       projectDocumentation.documentation &&
       chatMessages.length > 1 &&
       projectDocumentation.shouldCaptureAtMessageCount(chatMessages.length)
@@ -957,7 +1055,7 @@ export default function AIBuilder() {
           description: wizardState.description,
         })
         .catch((err) => {
-          console.error('Failed to auto-capture builder chat:', err);
+          console.error("Failed to auto-capture builder chat:", err);
         });
     }
   }, [
@@ -978,13 +1076,13 @@ export default function AIBuilder() {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
+      if (!file.type.startsWith("image/")) {
+        alert("Please upload an image file");
         return;
       }
 
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size must be less than 5MB');
+        alert("Image size must be less than 5MB");
         return;
       }
 
@@ -1001,7 +1099,7 @@ export default function AIBuilder() {
   const removeImage = useCallback(() => {
     setUploadedImage(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   }, [setUploadedImage]);
 
@@ -1015,36 +1113,42 @@ export default function AIBuilder() {
       phases.push({
         id: `phase-${phaseNumber}`,
         phaseNumber,
-        name: 'Foundation & Layout',
+        name: "Foundation & Layout",
         description: `Set up the base structure with ${concept.uiPreferences.layout} layout, ${concept.uiPreferences.style} style, and ${concept.uiPreferences.colorScheme} color scheme`,
         objectives: [
-          'Create main layout structure',
-          'Set up navigation',
-          'Implement responsive design',
-          'Apply theme and styling',
+          "Create main layout structure",
+          "Set up navigation",
+          "Implement responsive design",
+          "Apply theme and styling",
         ],
         prompt: `Create a ${concept.uiPreferences.layout} layout for "${concept.name}" with ${concept.uiPreferences.style} styling and ${concept.uiPreferences.colorScheme} color scheme.`,
         dependencies: [],
         features: [],
-        estimatedComplexity: 'moderate',
-        status: 'pending',
+        estimatedComplexity: "moderate",
+        status: "pending",
       });
       phaseNumber++;
 
       // Phase 2: Core Features (High Priority)
-      const highPriorityFeatures = concept.coreFeatures.filter((f) => f.priority === 'high');
+      const highPriorityFeatures = concept.coreFeatures.filter(
+        (f) => f.priority === "high"
+      );
       if (highPriorityFeatures.length > 0) {
         phases.push({
           id: `phase-${phaseNumber}`,
           phaseNumber,
-          name: 'Core Features',
-          description: 'Implement high-priority features',
+          name: "Core Features",
+          description: "Implement high-priority features",
           objectives: highPriorityFeatures.map((f) => f.name),
-          prompt: `Add these core features to "${concept.name}": ${highPriorityFeatures.map((f) => `${f.name} - ${f.description}`).join('; ')}`,
+          prompt: `Add these core features to "${
+            concept.name
+          }": ${highPriorityFeatures
+            .map((f) => `${f.name} - ${f.description}`)
+            .join("; ")}`,
           dependencies: [`phase-${phaseNumber - 1}`],
           features: highPriorityFeatures.map((f) => f.id),
-          estimatedComplexity: 'complex',
-          status: 'pending',
+          estimatedComplexity: "complex",
+          status: "pending",
         });
         phaseNumber++;
       }
@@ -1063,13 +1167,15 @@ export default function AIBuilder() {
       // Add system message about the plan
       const planMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
+        role: "assistant",
         content:
           `🎯 **Implementation Plan Created for "${concept.name}"**\n\n` +
           `I've analyzed your app concept and created a ${phases.length}-phase build plan:\n\n` +
           phases
-            .map((p) => `**Phase ${p.phaseNumber}: ${p.name}**\n${p.description}`)
-            .join('\n\n') +
+            .map(
+              (p) => `**Phase ${p.phaseNumber}: ${p.name}**\n${p.description}`
+            )
+            .join("\n\n") +
           `\n\n💡 **Ready to start building?** Switch to **⚡ ACT Mode** and type "build phase 1" or "start building" to begin!`,
         timestamp: new Date().toISOString(),
       };
@@ -1084,7 +1190,7 @@ export default function AIBuilder() {
           name: p.name,
           description: p.description,
           features: p.objectives,
-          status: 'pending' as const,
+          status: "pending" as const,
         })),
       };
       setNewAppStagePlan(stagePlan);
@@ -1112,25 +1218,30 @@ export default function AIBuilder() {
             name: p.name,
             description: p.description,
             features: p.features,
-            status: 'pending' as const,
+            status: "pending" as const,
           })),
         };
         setNewAppStagePlan(stagePlan);
 
         // Show phase plan message with optional design system indicator
         const designSystemInfo = concept.layoutDesign
-          ? `\n🎨 **Design System:** Using "${concept.layoutDesign.name || 'Custom Layout'}" - exact colors, typography & styles will be applied\n`
-          : '';
+          ? `\n🎨 **Design System:** Using "${
+              concept.layoutDesign.name || "Custom Layout"
+            }" - exact colors, typography & styles will be applied\n`
+          : "";
         const planMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
+          role: "assistant",
           content:
             `🎯 **${phasePlan.totalPhases}-Phase Build Plan Created for "${concept.name}"**\n\n` +
             `**Complexity:** ${phasePlan.complexity}\n` +
             `**Estimated Time:** ${phasePlan.estimatedTotalTime}${designSystemInfo}\n\n` +
             phasePlan.phases
-              .map((p) => `**Phase ${p.number}: ${p.name}** (${p.estimatedTime})\n${p.description}`)
-              .join('\n\n') +
+              .map(
+                (p) =>
+                  `**Phase ${p.number}: ${p.name}** (${p.estimatedTime})\n${p.description}`
+              )
+              .join("\n\n") +
             `\n\n💡 **Ready to start?** Switch to ACT mode and type "build phase 1"!`,
           timestamp: new Date().toISOString(),
         };
@@ -1138,11 +1249,13 @@ export default function AIBuilder() {
       } else {
         // No phase plan, just show concept created message
         const designInfo = concept.layoutDesign
-          ? `\n🎨 **Design System:** Using "${concept.layoutDesign.name || 'Custom Layout'}"\n`
-          : '';
+          ? `\n🎨 **Design System:** Using "${
+              concept.layoutDesign.name || "Custom Layout"
+            }"\n`
+          : "";
         const welcomeMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
+          role: "assistant",
           content:
             `✨ **App Concept Created: "${concept.name}"**\n\n` +
             `**Description:** ${concept.description}\n\n` +
@@ -1169,11 +1282,12 @@ export default function AIBuilder() {
   const startDynamicPhasedBuild = useCallback(
     async (phaseNumber: number = 1) => {
       if (!dynamicPhasePlan) {
-        console.error('No dynamic phase plan available');
+        console.error("No dynamic phase plan available");
         const errorMessage: ChatMessage = {
           id: generateId(),
-          role: 'system',
-          content: '❌ No phase plan available. Please use the Wizard to create a plan first.',
+          role: "system",
+          content:
+            "❌ No phase plan available. Please use the Wizard to create a plan first.",
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, errorMessage]);
@@ -1184,32 +1298,51 @@ export default function AIBuilder() {
       const context = dynamicBuildPhases.getExecutionContext(phaseNumber);
       if (!context) {
         // Fallback: If hook's manager not ready, create temporary context from plan
-        const phase = dynamicPhasePlan.phases.find((p) => p.number === phaseNumber);
+        const phase = dynamicPhasePlan.phases.find(
+          (p) => p.number === phaseNumber
+        );
         if (!phase) {
           console.error(`Phase ${phaseNumber} not found in plan`);
           return;
         }
 
         // Build a basic prompt for the fallback case
-        const fallbackPrompt = `Build Phase ${phaseNumber}: ${phase.name}\n\nDescription: ${phase.description}\n\nFeatures to implement:\n${phase.features.map((f) => `- ${f}`).join('\n')}`;
+        const fallbackPrompt = `Build Phase ${phaseNumber}: ${
+          phase.name
+        }\n\nDescription: ${
+          phase.description
+        }\n\nFeatures to implement:\n${phase.features
+          .map((f) => `- ${f}`)
+          .join("\n")}`;
 
         const startMessage: ChatMessage = {
           id: generateId(),
-          role: 'system',
-          content: `🚀 **Starting Phase ${phaseNumber}: ${phase.name}**\n\n${phase.description}\n\n**Features to implement:**\n${phase.features.map((f) => `- ${f}`).join('\n')}`,
+          role: "system",
+          content: `🚀 **Starting Phase ${phaseNumber}: ${phase.name}**\n\n${
+            phase.description
+          }\n\n**Features to implement:**\n${phase.features
+            .map((f) => `- ${f}`)
+            .join("\n")}`,
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, startMessage]);
         setUserInput(fallbackPrompt);
       } else {
         const prompt =
-          dynamicBuildPhases.getExecutionPrompt(phaseNumber) || buildPhaseExecutionPrompt(context);
+          dynamicBuildPhases.getExecutionPrompt(phaseNumber) ||
+          buildPhaseExecutionPrompt(context);
 
         // Add a message showing we're starting this phase
         const startMessage: ChatMessage = {
           id: generateId(),
-          role: 'system',
-          content: `🚀 **Starting Phase ${phaseNumber}: ${context.phaseName}**\n\n${context.phaseDescription}\n\n**Features to implement:**\n${context.features.map((f) => `- ${f}`).join('\n')}`,
+          role: "system",
+          content: `🚀 **Starting Phase ${phaseNumber}: ${
+            context.phaseName
+          }**\n\n${
+            context.phaseDescription
+          }\n\n**Features to implement:**\n${context.features
+            .map((f) => `- ${f}`)
+            .join("\n")}`,
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, startMessage]);
@@ -1223,7 +1356,7 @@ export default function AIBuilder() {
 
       // Mark phase as in-progress in the hook's state
       dynamicBuildPhases.startPhase(phaseNumber);
-      setCurrentMode('ACT');
+      setCurrentMode("ACT");
 
       // Update the stage plan to show this phase as in-progress
       setNewAppStagePlan((prev) =>
@@ -1232,7 +1365,9 @@ export default function AIBuilder() {
               ...prev,
               currentPhase: phaseNumber,
               phases: prev.phases.map((p) =>
-                p.number === phaseNumber ? { ...p, status: 'building' as const } : p
+                p.number === phaseNumber
+                  ? { ...p, status: "building" as const }
+                  : p
               ),
             }
           : null
@@ -1256,7 +1391,7 @@ export default function AIBuilder() {
     // Show generating message
     const generatingMessage: ChatMessage = {
       id: generateId(),
-      role: 'system',
+      role: "system",
       content: `🔄 **Generating Phase Plan...**\n\nAnalyzing "${appConcept.name}" to create an optimal build plan.`,
       timestamp: new Date().toISOString(),
     };
@@ -1264,9 +1399,9 @@ export default function AIBuilder() {
 
     try {
       // Call API to generate dynamic phases
-      const response = await fetch('/api/wizard/generate-phases', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/wizard/generate-phases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ concept: appConcept }),
       });
 
@@ -1287,26 +1422,28 @@ export default function AIBuilder() {
             name: p.name,
             description: p.description,
             features: p.features,
-            status: 'pending' as const,
+            status: "pending" as const,
           })),
         };
         setNewAppStagePlan(stagePlan);
 
         const notification: ChatMessage = {
           id: generateId(),
-          role: 'system',
+          role: "system",
           content: `🏗️ **${phasePlan.totalPhases}-Phase Build Plan Created**\n\nBuilding "${appConcept.name}" with ${phasePlan.complexity} complexity.\n\n**Estimated time:** ${phasePlan.estimatedTotalTime}`,
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, notification]);
       } else {
-        throw new Error(data.error || 'Failed to generate phase plan');
+        throw new Error(data.error || "Failed to generate phase plan");
       }
     } catch (error) {
       const errorMessage: ChatMessage = {
         id: generateId(),
-        role: 'system',
-        content: `❌ **Failed to generate phase plan**\n\n${(error as Error).message}`,
+        role: "system",
+        content: `❌ **Failed to generate phase plan**\n\n${
+          (error as Error).message
+        }`,
         timestamp: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, errorMessage]);
@@ -1337,8 +1474,10 @@ export default function AIBuilder() {
       if (currentPhase) {
         const notification: ChatMessage = {
           id: generateId(),
-          role: 'system',
-          content: `🔍 **Validating Phase ${currentPhase.number}...**\n\nChecking: ${currentPhase.testCriteria.join(', ')}`,
+          role: "system",
+          content: `🔍 **Validating Phase ${
+            currentPhase.number
+          }...**\n\nChecking: ${currentPhase.testCriteria.join(", ")}`,
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, notification]);
@@ -1360,8 +1499,8 @@ export default function AIBuilder() {
       const newComponent: GeneratedComponent = {
         id: generateId(),
         name: name,
-        code: '',
-        description: '',
+        code: "",
+        description: "",
         timestamp: new Date().toISOString(),
         isFavorite: false,
         conversationHistory: [],
@@ -1372,26 +1511,32 @@ export default function AIBuilder() {
       setCurrentComponent(newComponent);
       addComponent(newComponent);
       setChatMessages([getWelcomeMessage()]);
-      setActiveTab('chat');
+      setActiveTab("chat");
       setShowNameAppModal(false);
 
       // Store ID for persistence
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          localStorage.setItem('current_app_id', newComponent.id);
+          localStorage.setItem("current_app_id", newComponent.id);
         } catch {
           // Failed to save current app ID to localStorage
         }
       }
     },
-    [setCurrentComponent, addComponent, setChatMessages, setActiveTab, setShowNameAppModal]
+    [
+      setCurrentComponent,
+      addComponent,
+      setChatMessages,
+      setActiveTab,
+      setShowNameAppModal,
+    ]
   );
 
   // Save version helper
   const saveVersion = useCallback(
     (
       component: GeneratedComponent,
-      changeType: 'NEW_APP' | 'MAJOR_CHANGE' | 'MINOR_CHANGE',
+      changeType: "NEW_APP" | "MAJOR_CHANGE" | "MINOR_CHANGE",
       description: string
     ): GeneratedComponent => {
       const versions = component.versions || [];
@@ -1423,7 +1568,7 @@ export default function AIBuilder() {
         code: currentComponent.code,
         description: currentComponent.description,
         timestamp: currentComponent.timestamp,
-        changeType: 'MINOR_CHANGE',
+        changeType: "MINOR_CHANGE",
       });
       versionControl.clearRedoStack();
 
@@ -1436,30 +1581,34 @@ export default function AIBuilder() {
 
       updatedComponent = saveVersion(
         updatedComponent,
-        'MAJOR_CHANGE',
+        "MAJOR_CHANGE",
         pendingChange.changeDescription
       );
 
       setCurrentComponent(updatedComponent);
       setComponents((prev) =>
-        prev.map((comp) => (comp.id === currentComponent.id ? updatedComponent : comp))
+        prev.map((comp) =>
+          comp.id === currentComponent.id ? updatedComponent : comp
+        )
       );
 
       saveComponentToDb(updatedComponent);
 
       const approvalMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
-        content: `✅ Changes approved and applied! (Version ${updatedComponent.versions?.length || 1} saved)`,
+        role: "assistant",
+        content: `✅ Changes approved and applied! (Version ${
+          updatedComponent.versions?.length || 1
+        } saved)`,
         timestamp: new Date().toISOString(),
         componentCode: pendingChange.newCode,
         componentPreview: true,
       };
 
       setChatMessages((prev) => [...prev, approvalMessage]);
-      setActiveTab('preview');
+      setActiveTab("preview");
     } catch (error) {
-      console.error('Error applying changes:', error);
+      console.error("Error applying changes:", error);
     } finally {
       setPendingChange(null);
       setShowApprovalModal(false);
@@ -1482,7 +1631,7 @@ export default function AIBuilder() {
   const rejectChange = useCallback(() => {
     const rejectionMessage: ChatMessage = {
       id: generateId(),
-      role: 'assistant',
+      role: "assistant",
       content: `❌ Changes rejected. Your app remains unchanged.`,
       timestamp: new Date().toISOString(),
     };
@@ -1490,7 +1639,7 @@ export default function AIBuilder() {
     setChatMessages((prev) => [...prev, rejectionMessage]);
     setPendingChange(null);
     setShowApprovalModal(false);
-    setActiveTab('chat');
+    setActiveTab("chat");
   }, [setChatMessages, setPendingChange, setShowApprovalModal, setActiveTab]);
 
   // Approve diff
@@ -1499,14 +1648,16 @@ export default function AIBuilder() {
 
     try {
       const currentAppData = JSON.parse(currentComponent.code);
-      const currentFiles = currentAppData.files.map((f: { path: string; content: string }) => ({
-        path: f.path,
-        content: f.content,
-      }));
+      const currentFiles = currentAppData.files.map(
+        (f: { path: string; content: string }) => ({
+          path: f.path,
+          content: f.content,
+        })
+      );
 
-      const response = await fetch('/api/ai-builder/apply-diff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/ai-builder/apply-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentFiles,
           diffs: pendingDiff.files,
@@ -1516,15 +1667,17 @@ export default function AIBuilder() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.errors?.join(', ') || 'Failed to apply diff');
+        throw new Error(result.errors?.join(", ") || "Failed to apply diff");
       }
 
       const updatedAppData = {
         ...currentAppData,
-        files: result.modifiedFiles.map((f: { path: string; content: string }) => ({
-          path: f.path,
-          content: f.content,
-        })),
+        files: result.modifiedFiles.map(
+          (f: { path: string; content: string }) => ({
+            path: f.path,
+            content: f.content,
+          })
+        ),
       };
 
       versionControl.pushToUndoStack({
@@ -1533,7 +1686,7 @@ export default function AIBuilder() {
         code: currentComponent.code,
         description: currentComponent.description,
         timestamp: currentComponent.timestamp,
-        changeType: 'MINOR_CHANGE',
+        changeType: "MINOR_CHANGE",
       });
       versionControl.clearRedoStack();
 
@@ -1544,18 +1697,24 @@ export default function AIBuilder() {
         timestamp: new Date().toISOString(),
       };
 
-      updatedComponent = saveVersion(updatedComponent, 'MINOR_CHANGE', pendingDiff.summary);
+      updatedComponent = saveVersion(
+        updatedComponent,
+        "MINOR_CHANGE",
+        pendingDiff.summary
+      );
 
       setCurrentComponent(updatedComponent);
       setComponents((prev) =>
-        prev.map((comp) => (comp.id === currentComponent.id ? updatedComponent : comp))
+        prev.map((comp) =>
+          comp.id === currentComponent.id ? updatedComponent : comp
+        )
       );
 
       saveComponentToDb(updatedComponent);
 
       const successMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
+        role: "assistant",
         content: `✅ Changes applied successfully!\n\n${pendingDiff.summary}`,
         timestamp: new Date().toISOString(),
         componentCode: JSON.stringify(updatedAppData, null, 2),
@@ -1563,12 +1722,12 @@ export default function AIBuilder() {
       };
 
       setChatMessages((prev) => [...prev, successMessage]);
-      setActiveTab('preview');
+      setActiveTab("preview");
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
       const errorMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
+        role: "assistant",
         content: `❌ **Error Applying Changes**\n\n${errorMsg}`,
         timestamp: new Date().toISOString(),
       };
@@ -1595,7 +1754,7 @@ export default function AIBuilder() {
   const rejectDiff = useCallback(() => {
     const rejectionMessage: ChatMessage = {
       id: generateId(),
-      role: 'assistant',
+      role: "assistant",
       content: `❌ Changes rejected. Your app remains unchanged.`,
       timestamp: new Date().toISOString(),
     };
@@ -1603,7 +1762,7 @@ export default function AIBuilder() {
     setChatMessages((prev) => [...prev, rejectionMessage]);
     setPendingDiff(null);
     setShowDiffPreview(false);
-    setActiveTab('chat');
+    setActiveTab("chat");
   }, [setChatMessages, setPendingDiff, setShowDiffPreview, setActiveTab]);
 
   // Revert to version
@@ -1615,7 +1774,7 @@ export default function AIBuilder() {
 
       const revertMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
+        role: "assistant",
         content: `🔄 Successfully reverted to Version ${version.versionNumber}\n\n**Reverted to:** ${version.description}`,
         timestamp: new Date().toISOString(),
         componentCode: version.code,
@@ -1624,9 +1783,15 @@ export default function AIBuilder() {
 
       setChatMessages((prev) => [...prev, revertMessage]);
       setShowVersionHistory(false);
-      setActiveTab('preview');
+      setActiveTab("preview");
     },
-    [currentComponent, versionControl, setChatMessages, setShowVersionHistory, setActiveTab]
+    [
+      currentComponent,
+      versionControl,
+      setChatMessages,
+      setShowVersionHistory,
+      setActiveTab,
+    ]
   );
 
   // Compare versions
@@ -1641,14 +1806,17 @@ export default function AIBuilder() {
   // Fork app
   const handleForkApp = useCallback(
     (sourceApp: GeneratedComponent, versionToFork?: AppVersion) => {
-      const forkedApp = versionControl.forkFromVersion(sourceApp, versionToFork);
+      const forkedApp = versionControl.forkFromVersion(
+        sourceApp,
+        versionToFork
+      );
 
       setComponents((prev) => [forkedApp, ...prev]);
       setCurrentComponent(forkedApp);
       setChatMessages([
         {
           id: generateId(),
-          role: 'assistant',
+          role: "assistant",
           content: `🍴 Successfully forked "${sourceApp.name}"!\n\nYou can now make changes to this forked version without affecting the original.`,
           timestamp: new Date().toISOString(),
           componentCode: forkedApp.code,
@@ -1656,7 +1824,7 @@ export default function AIBuilder() {
         },
       ]);
       setShowVersionHistory(false);
-      setActiveTab('preview');
+      setActiveTab("preview");
     },
     [
       versionControl,
@@ -1674,9 +1842,14 @@ export default function AIBuilder() {
       const component = components.find((c) => c.id === id);
       if (!component) return;
 
-      const updatedComponent = { ...component, isFavorite: !component.isFavorite };
+      const updatedComponent = {
+        ...component,
+        isFavorite: !component.isFavorite,
+      };
 
-      setComponents((prev) => prev.map((comp) => (comp.id === id ? updatedComponent : comp)));
+      setComponents((prev) =>
+        prev.map((comp) => (comp.id === id ? updatedComponent : comp))
+      );
 
       saveComponentToDb(updatedComponent);
     },
@@ -1694,13 +1867,16 @@ export default function AIBuilder() {
       setComponents(updatedComponents);
 
       // Immediately update localStorage to ensure sync before any page refresh
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          localStorage.setItem('ai_components', JSON.stringify(updatedComponents));
+          localStorage.setItem(
+            "ai_components",
+            JSON.stringify(updatedComponents)
+          );
 
           // If deleting the currently loaded component, clear its ID from localStorage
           if (currentComponent?.id === id) {
-            localStorage.removeItem('current_app_id');
+            localStorage.removeItem("current_app_id");
           }
         } catch {
           // Failed to update localStorage after delete
@@ -1710,7 +1886,7 @@ export default function AIBuilder() {
       if (currentComponent?.id === id) {
         setCurrentComponent(null);
         setChatMessages([getWelcomeMessage()]);
-        setActiveTab('chat');
+        setActiveTab("chat");
       }
     },
     [
@@ -1738,14 +1914,16 @@ export default function AIBuilder() {
           files: files,
         });
 
-        const filename = `${comp.name.toLowerCase().replace(/\s+/g, '-')}.zip`;
+        const filename = `${comp.name.toLowerCase().replace(/\s+/g, "-")}.zip`;
         downloadBlob(zipBlob, filename);
 
-        setDeploymentInstructions(getDeploymentInstructions('vercel', comp.name));
+        setDeploymentInstructions(
+          getDeploymentInstructions("vercel", comp.name)
+        );
         setShowDeploymentModal(true);
       } catch (error) {
-        console.error('Error exporting app:', error);
-        alert('Failed to export app. Please try again.');
+        console.error("Error exporting app:", error);
+        alert("Failed to export app. Please try again.");
       } finally {
         setExportingApp(null);
       }
@@ -1759,23 +1937,30 @@ export default function AIBuilder() {
       setCurrentComponent(comp);
       setChatMessages(comp.conversationHistory);
       setShowLibrary(false);
-      setActiveTab('preview');
-      const hasPendingPhases = comp.stagePlan?.phases?.some((p) => p.status === 'pending') ?? false;
+      setActiveTab("preview");
+      const hasPendingPhases =
+        comp.stagePlan?.phases?.some((p) => p.status === "pending") ?? false;
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       setNewAppStagePlan(hasPendingPhases ? comp.stagePlan! : null);
     },
-    [setCurrentComponent, setChatMessages, setShowLibrary, setActiveTab, setNewAppStagePlan]
+    [
+      setCurrentComponent,
+      setChatMessages,
+      setShowLibrary,
+      setActiveTab,
+      setNewAppStagePlan,
+    ]
   );
 
   // Download code
   const downloadCode = useCallback(() => {
     if (!currentComponent) return;
 
-    const blob = new Blob([currentComponent.code], { type: 'text/plain' });
+    const blob = new Blob([currentComponent.code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `${currentComponent.name.replace(/\s+/g, '-')}.tsx`;
+    a.download = `${currentComponent.name.replace(/\s+/g, "-")}.tsx`;
     a.click();
     URL.revokeObjectURL(url);
   }, [currentComponent]);
@@ -1785,7 +1970,7 @@ export default function AIBuilder() {
     () =>
       components.filter(
         (comp) =>
-          searchQuery === '' ||
+          searchQuery === "" ||
           comp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           comp.description.toLowerCase().includes(searchQuery.toLowerCase())
       ),
@@ -1802,7 +1987,9 @@ export default function AIBuilder() {
       }
 
       // Fallback to simple prompt for non-dynamic plans
-      const buildPrompt = `Build ${phase.name}: ${phase.description}. Features to implement: ${phase.features.join(', ')}`;
+      const buildPrompt = `Build ${phase.name}: ${
+        phase.description
+      }. Features to implement: ${phase.features.join(", ")}`;
       setUserInput(buildPrompt);
       setNewAppStagePlan((prev) =>
         prev
@@ -1810,13 +1997,20 @@ export default function AIBuilder() {
               ...prev,
               currentPhase: phase.number,
               phases: prev.phases.map((p) =>
-                p.number === phase.number ? { ...p, status: 'building' as const } : p
+                p.number === phase.number
+                  ? { ...p, status: "building" as const }
+                  : p
               ),
             }
           : null
       );
     },
-    [dynamicPhasePlan, startDynamicPhasedBuild, setUserInput, setNewAppStagePlan]
+    [
+      dynamicPhasePlan,
+      startDynamicPhasedBuild,
+      setUserInput,
+      setNewAppStagePlan,
+    ]
   );
 
   // ============================================================================
@@ -1825,17 +2019,33 @@ export default function AIBuilder() {
   const sendMessage = useCallback(async () => {
     if (!userInput.trim() || isGenerating) return;
 
+    // If debate mode is active, start a debate instead of regular message
+    if (debate.debateMode && !debate.isDebating) {
+      const parsedCurrentAppState = currentComponent
+        ? JSON.parse(currentComponent.code)
+        : undefined;
+
+      setUserInput("");
+      await debate.startDebate(userInput, parsedCurrentAppState);
+      return;
+    }
+
+    // Skip regular message sending if currently debating
+    if (debate.isDebating) {
+      return;
+    }
+
     // Create user message
     const userMessage: ChatMessage = {
       id: generateId(),
-      role: 'user',
+      role: "user",
       content: userInput,
       timestamp: new Date().toISOString(),
     };
 
     setLastUserRequest(userInput);
     setChatMessages((prev) => [...prev, userMessage]);
-    setUserInput('');
+    setUserInput("");
     setIsGenerating(true);
 
     // Determine if this is a modification (has existing app loaded)
@@ -1845,7 +2055,10 @@ export default function AIBuilder() {
     const isQuestion = messageSender.isQuestion(userInput);
 
     // Get progress messages for requests
-    const progressMessages = messageSender.getProgressMessages(isQuestion, isModification);
+    const progressMessages = messageSender.getProgressMessages(
+      isQuestion,
+      isModification
+    );
 
     let progressIndex = 0;
     const progressInterval = setInterval(() => {
@@ -1857,7 +2070,9 @@ export default function AIBuilder() {
 
     try {
       // Build request body
-      const parsedCurrentAppState = currentComponent ? JSON.parse(currentComponent.code) : null;
+      const parsedCurrentAppState = currentComponent
+        ? JSON.parse(currentComponent.code)
+        : null;
 
       const requestBody: Record<string, unknown> = {
         prompt: userInput,
@@ -1877,22 +2092,25 @@ export default function AIBuilder() {
       let endpoint: string;
       let fetchBody: string;
 
-      if (currentMode === 'PLAN') {
+      if (currentMode === "PLAN") {
         // Smart Conversations: Use wizard API for intelligent planning
-        endpoint = '/api/wizard/chat';
+        endpoint = "/api/wizard/chat";
 
         // Prepare conversation history with compression for large conversations
         // Increased limit to 100k tokens for deep context memory
         const MAX_CONTEXT_TOKENS = 100000;
-        let conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+        let conversationHistory: Array<{
+          role: "user" | "assistant";
+          content: string;
+        }>;
         let contextSummary: string | undefined;
 
         // Filter out system messages for the API context
         const filteredMessages = chatMessages
-          .filter((m) => m.role !== 'system')
+          .filter((m) => m.role !== "system")
           .map((m) => ({
             id: m.id,
-            role: m.role as 'user' | 'assistant',
+            role: m.role as "user" | "assistant",
             content: m.content,
             timestamp: m.timestamp,
           }));
@@ -1905,7 +2123,7 @@ export default function AIBuilder() {
           });
 
           conversationHistory = compressed.recentMessages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
+            role: m.role as "user" | "assistant",
             content: m.content,
           }));
 
@@ -1914,7 +2132,7 @@ export default function AIBuilder() {
           }
         } else {
           conversationHistory = filteredMessages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
+            role: m.role as "user" | "assistant",
             content: m.content,
           }));
         }
@@ -1930,7 +2148,7 @@ export default function AIBuilder() {
       } else {
         // ACT mode: Use builder expert for intelligent intent detection
         // The builder expert handles questions, builds, and modifications
-        endpoint = '/api/builder/chat';
+        endpoint = "/api/builder/chat";
 
         // Compress conversation history for token efficiency
         const compressed = compressForACTMode(chatMessages);
@@ -1942,7 +2160,7 @@ export default function AIBuilder() {
           currentAppState: currentComponent
             ? {
                 name: currentComponent.name,
-                files: [{ path: 'App.tsx', content: currentComponent.code }],
+                files: [{ path: "App.tsx", content: currentComponent.code }],
               }
             : undefined,
           image: uploadedImage || undefined,
@@ -1951,15 +2169,15 @@ export default function AIBuilder() {
       }
 
       const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: fetchBody,
       });
 
       if (progressInterval) {
         clearInterval(progressInterval);
       }
-      setGenerationProgress('');
+      setGenerationProgress("");
 
       data = await response.json();
 
@@ -1968,12 +2186,12 @@ export default function AIBuilder() {
       }
 
       // Smart Conversations: Update wizard state from response (PLAN mode)
-      if (currentMode === 'PLAN' && data?.updatedState) {
+      if (currentMode === "PLAN" && data?.updatedState) {
         setWizardState(data.updatedState as typeof wizardState);
       }
 
       // Builder Expert: Check if we should trigger build/modify (ACT mode)
-      if (currentMode === 'ACT' && data?.shouldTriggerBuild) {
+      if (currentMode === "ACT" && data?.shouldTriggerBuild) {
         // The builder expert decided this needs a full build - call streaming generation
         // Use compressed conversation for token efficiency
         const buildCompressed = compressForACTMode(chatMessages);
@@ -1991,8 +2209,9 @@ export default function AIBuilder() {
 
         const buildingMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
-          content: "🔨 **Building your app...**\n\nI'm generating the code for your application.",
+          role: "assistant",
+          content:
+            "🔨 **Building your app...**\n\nI'm generating the code for your application.",
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, buildingMessage]);
@@ -2002,19 +2221,27 @@ export default function AIBuilder() {
         if (streamResult) {
           const aiAppMessage: ChatMessage = {
             id: generateId(),
-            role: 'assistant',
-            content: `🚀 App created!\n\n${streamResult.description || `I've created your ${streamResult.name} app!`}`,
+            role: "assistant",
+            content: `🚀 App created!\n\n${
+              streamResult.description ||
+              `I've created your ${streamResult.name} app!`
+            }`,
             timestamp: new Date().toISOString(),
             componentCode: JSON.stringify(streamResult),
             componentPreview: !!(streamResult.files as unknown[])?.length,
           };
           setChatMessages((prev) => [...prev, aiAppMessage]);
 
-          const files = streamResult.files as Array<{ path: string; content: string }>;
+          const files = streamResult.files as Array<{
+            path: string;
+            content: string;
+          }>;
           if (files && files.length > 0) {
             let newComponent: GeneratedComponent = {
               id: generateId(),
-              name: (streamResult.name as string) || extractComponentName(userInput),
+              name:
+                (streamResult.name as string) ||
+                extractComponentName(userInput),
               code: JSON.stringify(streamResult, null, 2),
               description: userInput,
               timestamp: new Date().toISOString(),
@@ -2023,18 +2250,22 @@ export default function AIBuilder() {
               versions: [],
             };
 
-            newComponent = saveVersion(newComponent, 'NEW_APP', userInput);
+            newComponent = saveVersion(newComponent, "NEW_APP", userInput);
             setCurrentComponent(newComponent);
             setComponents((prev) => [newComponent, ...prev].slice(0, 50));
             saveComponentToDb(newComponent);
-            setActiveTab('preview');
+            setActiveTab("preview");
           }
         }
         return;
       }
 
       // Builder Expert: Check if we should trigger modify (ACT mode)
-      if (currentMode === 'ACT' && data?.shouldTriggerModify && currentComponent) {
+      if (
+        currentMode === "ACT" &&
+        data?.shouldTriggerModify &&
+        currentComponent
+      ) {
         // Use compressed conversation for token efficiency
         const modifyCompressed = compressForACTMode(chatMessages);
 
@@ -2053,8 +2284,8 @@ export default function AIBuilder() {
 
         const modifyingMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
-          content: '🔧 **Updating your app...**',
+          role: "assistant",
+          content: "🔧 **Updating your app...**",
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, modifyingMessage]);
@@ -2064,15 +2295,20 @@ export default function AIBuilder() {
         if (streamResult) {
           const aiAppMessage: ChatMessage = {
             id: generateId(),
-            role: 'assistant',
-            content: `✅ App updated!\n\n${streamResult.description || 'Changes applied.'}`,
+            role: "assistant",
+            content: `✅ App updated!\n\n${
+              streamResult.description || "Changes applied."
+            }`,
             timestamp: new Date().toISOString(),
             componentCode: JSON.stringify(streamResult),
             componentPreview: !!(streamResult.files as unknown[])?.length,
           };
           setChatMessages((prev) => [...prev, aiAppMessage]);
 
-          const files = streamResult.files as Array<{ path: string; content: string }>;
+          const files = streamResult.files as Array<{
+            path: string;
+            content: string;
+          }>;
           if (files && files.length > 0) {
             // Push current state to undo stack before modification
             versionControl.pushToUndoStack({
@@ -2081,7 +2317,7 @@ export default function AIBuilder() {
               code: currentComponent.code,
               description: currentComponent.description,
               timestamp: currentComponent.timestamp,
-              changeType: 'MINOR_CHANGE',
+              changeType: "MINOR_CHANGE",
             });
             versionControl.clearRedoStack();
 
@@ -2093,13 +2329,19 @@ export default function AIBuilder() {
               conversationHistory: [...chatMessages, userMessage, aiAppMessage],
             };
 
-            updatedComponent = saveVersion(updatedComponent, 'MAJOR_CHANGE', userInput);
+            updatedComponent = saveVersion(
+              updatedComponent,
+              "MAJOR_CHANGE",
+              userInput
+            );
             setCurrentComponent(updatedComponent);
             setComponents((prev) =>
-              prev.map((c) => (c.id === currentComponent.id ? updatedComponent : c))
+              prev.map((c) =>
+                c.id === currentComponent.id ? updatedComponent : c
+              )
             );
             saveComponentToDb(updatedComponent);
-            setActiveTab('preview');
+            setActiveTab("preview");
 
             // Complete phase tracking if a phase was in progress
             if (dynamicBuildPhases.currentPhase) {
@@ -2122,23 +2364,30 @@ export default function AIBuilder() {
 
       // Builder Expert: Check if we should trigger design changes (ACT mode)
       // This handles visual/layout modifications like colors, fonts, spacing, effects
-      if (currentMode === 'ACT' && data?.shouldTriggerDesign && currentComponent) {
+      if (
+        currentMode === "ACT" &&
+        data?.shouldTriggerDesign &&
+        currentComponent
+      ) {
         // Capture preview screenshot for AI vision
         let previewScreenshot: string | undefined;
         try {
-          const captureResult = await captureLayoutPreview('sandpack-preview');
+          const captureResult = await captureLayoutPreview("sandpack-preview");
           if (captureResult.success && captureResult.dataUrl) {
             previewScreenshot = captureResult.dataUrl;
           }
         } catch (captureError) {
-          console.warn('Failed to capture preview for design chat:', captureError);
+          console.warn(
+            "Failed to capture preview for design chat:",
+            captureError
+          );
           // Continue without screenshot - AI can still use layoutDesign JSON
         }
 
         const designRequestBody = {
           message: userInput,
           conversationHistory: chatMessages.slice(-50).map((m) => ({
-            role: m.role === 'user' ? 'user' : 'assistant',
+            role: m.role === "user" ? "user" : "assistant",
             content: m.content,
           })),
           previewScreenshot,
@@ -2147,16 +2396,17 @@ export default function AIBuilder() {
 
         const designingMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
-          content: '🎨 **Updating design...**\n\nAnalyzing your layout and applying changes.',
+          role: "assistant",
+          content:
+            "🎨 **Updating design...**\n\nAnalyzing your layout and applying changes.",
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, designingMessage]);
 
         try {
-          const designResponse = await fetch('/api/builder/design-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const designResponse = await fetch("/api/builder/design-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(designRequestBody),
           });
 
@@ -2167,9 +2417,14 @@ export default function AIBuilder() {
           }
 
           // Update appConcept.layoutDesign with the merged design
-          if (designData?.updatedDesign && Object.keys(designData.updatedDesign).length > 0) {
-            const currentLayoutDesign = (appConcept?.layoutDesign || {}) as Partial<LayoutDesign>;
-            const updatedDesign = designData.updatedDesign as Partial<LayoutDesign>;
+          if (
+            designData?.updatedDesign &&
+            Object.keys(designData.updatedDesign).length > 0
+          ) {
+            const currentLayoutDesign = (appConcept?.layoutDesign ||
+              {}) as Partial<LayoutDesign>;
+            const updatedDesign =
+              designData.updatedDesign as Partial<LayoutDesign>;
             const mergedDesign = {
               ...currentLayoutDesign,
               ...updatedDesign,
@@ -2206,35 +2461,45 @@ export default function AIBuilder() {
           }
 
           // Build response message with design changes
-          let responseContent = designData?.message || 'Design updated successfully.';
+          let responseContent =
+            designData?.message || "Design updated successfully.";
 
           // Add design change summary if available
-          if (designData?.designChanges && designData.designChanges.length > 0) {
+          if (
+            designData?.designChanges &&
+            designData.designChanges.length > 0
+          ) {
             const changesSummary = (designData.designChanges as DesignChange[])
               .slice(0, 5)
               .map((c: DesignChange) => `• **${c.property}**: ${c.reason}`)
-              .join('\n');
+              .join("\n");
             responseContent += `\n\n**Changes applied:**\n${changesSummary}`;
           }
 
           // Add tool usage info if tools were used
           if (designData?.toolsUsed && designData.toolsUsed.length > 0) {
-            responseContent += `\n\n_Tools used: ${designData.toolsUsed.join(', ')}_`;
+            responseContent += `\n\n_Tools used: ${designData.toolsUsed.join(
+              ", "
+            )}_`;
           }
 
           const designResultMessage: ChatMessage = {
             id: generateId(),
-            role: 'assistant',
+            role: "assistant",
             content: responseContent,
             timestamp: new Date().toISOString(),
           };
           setChatMessages((prev) => [...prev, designResultMessage]);
         } catch (designError) {
-          console.error('Design chat error:', designError);
+          console.error("Design chat error:", designError);
           const errorMessage: ChatMessage = {
             id: generateId(),
-            role: 'assistant',
-            content: `❌ Failed to update design: ${designError instanceof Error ? designError.message : 'Unknown error'}. Please try again.`,
+            role: "assistant",
+            content: `❌ Failed to update design: ${
+              designError instanceof Error
+                ? designError.message
+                : "Unknown error"
+            }. Please try again.`,
             timestamp: new Date().toISOString(),
           };
           setChatMessages((prev) => [...prev, errorMessage]);
@@ -2244,18 +2509,18 @@ export default function AIBuilder() {
       }
 
       // Handle diff response
-      if (data?.changeType === 'MODIFICATION' && data?.files) {
+      if (data?.changeType === "MODIFICATION" && data?.files) {
         setPendingDiff({
           id: generateId(),
           summary: data.summary as string,
-          files: data.files as PendingDiff['files'],
+          files: data.files as PendingDiff["files"],
           timestamp: new Date().toISOString(),
         });
         setShowDiffPreview(true);
 
         const diffMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          role: 'assistant',
+          role: "assistant",
           content: `🔍 **Changes Ready for Review**\n\n${data.summary}`,
           timestamp: new Date().toISOString(),
         };
@@ -2264,16 +2529,22 @@ export default function AIBuilder() {
       }
 
       // Handle chat response (wizard in PLAN mode, builder expert in ACT mode)
-      const isBuilderResponse = currentMode === 'ACT' && data?.message && data?.responseType;
-      const isWizardResponse = currentMode === 'PLAN' && data?.message;
+      const isBuilderResponse =
+        currentMode === "ACT" && data?.message && data?.responseType;
+      const isWizardResponse = currentMode === "PLAN" && data?.message;
       const isChatResponse =
-        isQuestion || data?.type === 'chat' || isWizardResponse || isBuilderResponse;
+        isQuestion ||
+        data?.type === "chat" ||
+        isWizardResponse ||
+        isBuilderResponse;
 
       if (isChatResponse) {
         const chatResponse: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
-          content: (data?.message || data?.answer || data?.description) as string,
+          role: "assistant",
+          content: (data?.message ||
+            data?.answer ||
+            data?.description) as string,
           timestamp: new Date().toISOString(),
         };
         setChatMessages((prev) => [...prev, chatResponse]);
@@ -2281,8 +2552,10 @@ export default function AIBuilder() {
         // Handle full-app response (both streaming and non-streaming)
         const aiAppMessage: ChatMessage = {
           id: generateId(),
-          role: 'assistant',
-          content: `🚀 App created\n\n${data.description || `I've created your ${data.name} app!`}`,
+          role: "assistant",
+          content: `🚀 App created\n\n${
+            data.description || `I've created your ${data.name} app!`
+          }`,
           timestamp: new Date().toISOString(),
           componentCode: JSON.stringify(data),
           componentPreview: !!(data.files as unknown[])?.length,
@@ -2299,25 +2572,34 @@ export default function AIBuilder() {
               code: currentComponent.code,
               description: currentComponent.description,
               timestamp: currentComponent.timestamp,
-              changeType: 'MINOR_CHANGE',
+              changeType: "MINOR_CHANGE",
             });
             versionControl.clearRedoStack();
           }
 
           let newComponent: GeneratedComponent = {
-            id: isModification && currentComponent ? currentComponent.id : generateId(),
+            id:
+              isModification && currentComponent
+                ? currentComponent.id
+                : generateId(),
             name: (data.name as string) || extractComponentName(userInput),
             code: JSON.stringify(data, null, 2),
             description: userInput,
             timestamp: new Date().toISOString(),
-            isFavorite: isModification && currentComponent ? currentComponent.isFavorite : false,
+            isFavorite:
+              isModification && currentComponent
+                ? currentComponent.isFavorite
+                : false,
             conversationHistory: [...chatMessages, userMessage, aiAppMessage],
-            versions: isModification && currentComponent ? currentComponent.versions : [],
+            versions:
+              isModification && currentComponent
+                ? currentComponent.versions
+                : [],
           };
 
           newComponent = saveVersion(
             newComponent,
-            isModification ? 'MAJOR_CHANGE' : 'NEW_APP',
+            isModification ? "MAJOR_CHANGE" : "NEW_APP",
             (data.description as string) || userInput
           );
 
@@ -2325,14 +2607,16 @@ export default function AIBuilder() {
 
           if (isModification && currentComponent) {
             setComponents((prev) =>
-              prev.map((comp) => (comp.id === currentComponent.id ? newComponent : comp))
+              prev.map((comp) =>
+                comp.id === currentComponent.id ? newComponent : comp
+              )
             );
           } else {
             setComponents((prev) => [newComponent, ...prev].slice(0, 50));
           }
 
           saveComponentToDb(newComponent);
-          setActiveTab('preview');
+          setActiveTab("preview");
 
           // Complete phase tracking if a phase was in progress
           if (dynamicBuildPhases.currentPhase) {
@@ -2356,7 +2640,7 @@ export default function AIBuilder() {
                     currentPhase: phaseResult.phaseNumber,
                     phases: prev.phases.map((p) =>
                       p.number === phaseResult.phaseNumber
-                        ? { ...p, status: 'complete' as const }
+                        ? { ...p, status: "complete" as const }
                         : p
                     ),
                   }
@@ -2369,12 +2653,14 @@ export default function AIBuilder() {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
-      setGenerationProgress('');
+      setGenerationProgress("");
 
       const errorMessage: ChatMessage = {
         id: generateId(),
-        role: 'assistant',
-        content: `❌ Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        role: "assistant",
+        content: `❌ Sorry, I encountered an error: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }. Please try again.`,
         timestamp: new Date().toISOString(),
       };
       setChatMessages((prev) => [...prev, errorMessage]);
@@ -2382,7 +2668,7 @@ export default function AIBuilder() {
       setIsGenerating(false);
       setUploadedImage(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
     // Note: This callback depends on the listed values that may change. The Zustand setters
@@ -2399,6 +2685,9 @@ export default function AIBuilder() {
     streaming,
     saveVersion,
     saveComponentToDb,
+    debate.debateMode,
+    debate.isDebating,
+    debate.startDebate,
   ]);
 
   // ============================================================================
@@ -2419,7 +2708,7 @@ export default function AIBuilder() {
       <div className="h-full bg-zinc-950">
         {/* Header */}
         <BuilderHeader
-          projectName={currentComponent?.name || 'Untitled App'}
+          projectName={currentComponent?.name || "Untitled App"}
           onProjectNameChange={(name) => {
             if (currentComponent) {
               // Update component name in store
@@ -2427,13 +2716,15 @@ export default function AIBuilder() {
               setCurrentComponent(updated);
             }
           }}
-          projectStatus={isGenerating ? 'generating' : currentComponent ? 'saved' : 'draft'}
+          projectStatus={
+            isGenerating ? "generating" : currentComponent ? "saved" : "draft"
+          }
           hasUnsavedChanges={false}
-          currentView={activeTab as 'chat' | 'code' | 'preview' | 'split'}
+          currentView={activeTab as "chat" | "code" | "preview" | "split"}
           onViewChange={(view) => {
             // Map 'split' to 'preview' for the store since ActiveTab doesn't support 'split'
-            const mappedView = view === 'split' ? 'preview' : view;
-            setActiveTab(mappedView as 'chat' | 'preview' | 'code');
+            const mappedView = view === "split" ? "preview" : view;
+            setActiveTab(mappedView as "chat" | "preview" | "code");
           }}
           onNewProject={handleNewApp}
           onSave={() => {
@@ -2444,14 +2735,14 @@ export default function AIBuilder() {
           onExport={(format) => {
             if (currentComponent) {
               switch (format) {
-                case 'zip':
+                case "zip":
                   handleExportApp(currentComponent);
                   break;
-                case 'clipboard':
+                case "clipboard":
                   navigator.clipboard.writeText(currentComponent.code);
                   break;
-                case 'html':
-                case 'react':
+                case "html":
+                case "react":
                   // For HTML/React, use the ZIP export which packages everything
                   handleExportApp(currentComponent);
                   break;
@@ -2462,13 +2753,15 @@ export default function AIBuilder() {
           onHelp={() => {
             /* Could open help modal */
           }}
-          onWizard={() => setActiveView('wizard')}
-          onLayoutBuilder={() => setActiveView('layout')}
-          onPhasedBuild={() => setActiveView('build')}
+          onWizard={() => setActiveView("wizard")}
+          onLayoutBuilder={() => setActiveView("layout")}
+          onPhasedBuild={() => setActiveView("build")}
           hasAppConcept={!!appConcept}
-          isPhasedMode={activeView === 'build'}
-          showPhasedBuildPanel={activeView === 'build'}
-          onTogglePhasedPanel={() => setActiveView(activeView === 'build' ? 'main' : 'build')}
+          isPhasedMode={activeView === "build"}
+          showPhasedBuildPanel={activeView === "build"}
+          onTogglePhasedPanel={() =>
+            setActiveView(activeView === "build" ? "main" : "build")
+          }
           versionCount={currentComponent?.versions?.length || 0}
           onShowHistory={() => setShowVersionHistory(!showVersionHistory)}
           appCount={components.length}
@@ -2485,7 +2778,7 @@ export default function AIBuilder() {
         <TabNavigation />
 
         {/* Main Content - Builder View */}
-        {activeView === 'main' && (
+        {activeView === "main" && (
           <div className="max-w-[1800px] mx-auto px-4 py-4 h-[calc(100vh-120px)]">
             <ResizablePanelGroup
               direction="horizontal"
@@ -2509,24 +2802,38 @@ export default function AIBuilder() {
                     onModeChange={setCurrentMode}
                     stagePlan={newAppStagePlan}
                     onBuildPhase={handleBuildPhase}
-                    onViewComponent={() => setActiveTab('preview')}
+                    onViewComponent={() => setActiveTab("preview")}
                     streamingProgress={streaming.progress}
                     isStreamingActive={streaming.isStreaming}
                     hasLayoutDesign={!!appConcept?.layoutDesign}
                     onCapturePreview={async () => {
                       try {
-                        const result = await captureLayoutPreview('sandpack-preview');
+                        const result = await captureLayoutPreview(
+                          "sandpack-preview"
+                        );
                         if (result.success && result.dataUrl) {
                           setUploadedImage(result.dataUrl);
                         }
                       } catch (err) {
-                        console.error('Failed to capture preview:', err);
+                        console.error("Failed to capture preview:", err);
                       }
                     }}
                     canUndo={versionControl.canUndo}
                     canRedo={versionControl.canRedo}
                     onUndo={versionControl.undo}
                     onRedo={versionControl.redo}
+                    // Debate mode props
+                    debateMode={debate.debateMode}
+                    onDebateModeToggle={debate.toggleDebateMode}
+                    debateMessages={debate.messages}
+                    debateCurrentSpeaker={debate.currentSpeaker}
+                    debateCost={debate.cost}
+                    debateConsensus={debate.consensus}
+                    debateStatus={debate.status}
+                    debateError={debate.error}
+                    onEndDebate={debate.endDebate}
+                    onImplementConsensus={handleImplementConsensus}
+                    isImplementingConsensus={isImplementingConsensus}
                   />
                 </div>
               </ResizablePanel>
@@ -2534,7 +2841,11 @@ export default function AIBuilder() {
               <ResizableHandle />
 
               {/* Preview Panel */}
-              <ResizablePanel defaultSize={showCollaboration ? 45 : 65} minSize={30} maxSize={80}>
+              <ResizablePanel
+                defaultSize={showCollaboration ? 45 : 65}
+                minSize={30}
+                maxSize={80}
+              >
                 <PreviewPanel
                   currentComponent={currentComponent}
                   activeTab={activeTab}
@@ -2561,19 +2872,22 @@ export default function AIBuilder() {
                   <ResizableHandle />
                   <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
                     <AICollaborationHub
-                      appId={currentComponent?.id || ''}
+                      appId={currentComponent?.id || ""}
                       teamId={undefined}
-                      currentUserId={user?.id || ''}
+                      currentUserId={user?.id || ""}
                       currentMode={currentMode.toLowerCase() as BuilderMode}
                       currentPhase={dynamicBuildPhases.currentPhase?.id}
                       conversationSnapshot={chatMessages}
-                      phases={dynamicPhasePlan?.phases?.map(p => ({
+                      phases={dynamicPhasePlan?.phases?.map((p) => ({
                         number: p.number,
                         name: p.name,
-                        features: p.features
+                        features: p.features,
                       }))}
                       onContextChange={(context) => {
-                        console.log('AI Context updated:', context.slice(0, 100));
+                        console.log(
+                          "AI Context updated:",
+                          context.slice(0, 100)
+                        );
                       }}
                     />
                   </ResizablePanel>
@@ -2584,22 +2898,22 @@ export default function AIBuilder() {
         )}
 
         {/* Wizard View */}
-        {activeView === 'wizard' && (
+        {activeView === "wizard" && (
           <div className="h-[calc(100vh-120px)]">
             <NaturalConversationWizard
               onComplete={handleNaturalWizardComplete}
-              onCancel={() => setActiveView('main')}
+              onCancel={() => setActiveView("main")}
               isFullPage
             />
           </div>
         )}
 
         {/* Layout View */}
-        {activeView === 'layout' && (
+        {activeView === "layout" && (
           <div className="h-[calc(100vh-120px)]">
             <LayoutBuilderWizard
               isOpen={true}
-              onClose={() => setActiveView('main')}
+              onClose={() => setActiveView("main")}
               onApplyToAppConcept={() => {
                 // Optionally close the wizard or show a success message
               }}
@@ -2609,11 +2923,11 @@ export default function AIBuilder() {
         )}
 
         {/* Build View */}
-        {activeView === 'build' && dynamicPhasePlan && (
+        {activeView === "build" && dynamicPhasePlan && (
           <div className="h-[calc(100vh-120px)]">
             <PhasedBuildPanel
               isOpen={true}
-              onClose={() => setActiveView('main')}
+              onClose={() => setActiveView("main")}
               phases={dynamicBuildPhases.uiPhases}
               progress={dynamicBuildPhases.progress}
               currentPhase={
@@ -2630,13 +2944,17 @@ export default function AIBuilder() {
               onPauseBuild={dynamicBuildPhases.pauseBuild}
               onResumeBuild={dynamicBuildPhases.resumeBuild}
               onSkipPhase={(phaseId) => {
-                const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === phaseId);
+                const phase = dynamicBuildPhases.uiPhases.find(
+                  (p) => p.id === phaseId
+                );
                 if (phase) {
                   dynamicBuildPhases.skipPhase(phase.order);
                 }
               }}
               onRetryPhase={(phaseId) => {
-                const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === phaseId);
+                const phase = dynamicBuildPhases.uiPhases.find(
+                  (p) => p.id === phaseId
+                );
                 if (phase) {
                   dynamicBuildPhases.retryPhase(phase.order);
                 }
@@ -2669,7 +2987,7 @@ export default function AIBuilder() {
         )}
 
         {/* Build View - No Plan Yet */}
-        {activeView === 'build' && !dynamicPhasePlan && (
+        {activeView === "build" && !dynamicPhasePlan && (
           <div className="h-[calc(100vh-120px)] flex items-center justify-center">
             <div className="text-center max-w-md px-4">
               <div className="w-20 h-20 rounded-2xl bg-zinc-800 flex items-center justify-center mb-6 mx-auto">
@@ -2687,11 +3005,17 @@ export default function AIBuilder() {
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-zinc-100 mb-2">No Build Plan</h2>
+              <h2 className="text-xl font-semibold text-zinc-100 mb-2">
+                No Build Plan
+              </h2>
               <p className="text-sm text-zinc-400 mb-6">
-                Use the Wizard to create an app concept and generate a phased build plan first.
+                Use the Wizard to create an app concept and generate a phased
+                build plan first.
               </p>
-              <button onClick={() => setActiveView('wizard')} className="btn-primary">
+              <button
+                onClick={() => setActiveView("wizard")}
+                className="btn-primary"
+              >
                 Start with Wizard
               </button>
             </div>
@@ -2769,7 +3093,7 @@ export default function AIBuilder() {
           deploymentInstructions={deploymentInstructions}
           onPlatformChange={(platform) =>
             setDeploymentInstructions(
-              getDeploymentInstructions(platform, exportingApp?.name || 'app')
+              getDeploymentInstructions(platform, exportingApp?.name || "app")
             )
           }
           appName={exportingApp?.name}
@@ -2791,7 +3115,7 @@ export default function AIBuilder() {
           pendingRequest={pendingNewAppRequest}
           onBuildAllAtOnce={() => {
             setShowNewAppStagingModal(false);
-            setPendingNewAppRequest('');
+            setPendingNewAppRequest("");
             setUserInput(pendingNewAppRequest);
           }}
           onBuildInPhases={async () => {
@@ -2799,9 +3123,9 @@ export default function AIBuilder() {
             setIsGenerating(true);
 
             try {
-              const response = await fetch('/api/ai-builder/plan-phases', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+              const response = await fetch("/api/ai-builder/plan-phases", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   prompt: pendingNewAppRequest,
                   conversationHistory: chatMessages.slice(-50),
@@ -2821,8 +3145,10 @@ export default function AIBuilder() {
 
               const phasePlanMessage: ChatMessage = {
                 id: generateId(),
-                role: 'assistant',
-                content: `🏗️ **${data.totalPhases ?? 0}-Phase Build Plan Created**\n\n${phaseContent}\n\n**Ready to start?** Type **'start'** or **'begin'** to build Phase 1!`,
+                role: "assistant",
+                content: `🏗️ **${
+                  data.totalPhases ?? 0
+                }-Phase Build Plan Created**\n\n${phaseContent}\n\n**Ready to start?** Type **'start'** or **'begin'** to build Phase 1!`,
                 timestamp: new Date().toISOString(),
               };
 
@@ -2830,14 +3156,16 @@ export default function AIBuilder() {
             } catch (error) {
               const errorMessage: ChatMessage = {
                 id: generateId(),
-                role: 'assistant',
-                content: `❌ Failed to create phase plan: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                role: "assistant",
+                content: `❌ Failed to create phase plan: ${
+                  error instanceof Error ? error.message : "Unknown error"
+                }`,
                 timestamp: new Date().toISOString(),
               };
               setChatMessages((prev) => [...prev, errorMessage]);
             } finally {
               setIsGenerating(false);
-              setPendingNewAppRequest('');
+              setPendingNewAppRequest("");
             }
           }}
         />
@@ -2874,7 +3202,10 @@ export default function AIBuilder() {
           }}
         />
 
-        <SettingsPage isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <SettingsPage
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+        />
 
         {dynamicPhasePlan && (
           <PhasedBuildPanel
@@ -2896,13 +3227,17 @@ export default function AIBuilder() {
             onPauseBuild={dynamicBuildPhases.pauseBuild}
             onResumeBuild={dynamicBuildPhases.resumeBuild}
             onSkipPhase={(phaseId) => {
-              const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === phaseId);
+              const phase = dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === phaseId
+              );
               if (phase) {
                 dynamicBuildPhases.skipPhase(phase.order);
               }
             }}
             onRetryPhase={(phaseId) => {
-              const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === phaseId);
+              const phase = dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === phaseId
+              );
               if (phase) {
                 dynamicBuildPhases.retryPhase(phase.order);
               }
@@ -2935,27 +3270,34 @@ export default function AIBuilder() {
         {selectedPhaseId && dynamicBuildPhases.uiPhases.length > 0 && (
           <PhaseDetailView
             phase={
-              dynamicBuildPhases.uiPhases.find((p) => p.id === selectedPhaseId) ||
-              dynamicBuildPhases.uiPhases[0]
+              dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === selectedPhaseId
+              ) || dynamicBuildPhases.uiPhases[0]
             }
             isOpen={!!selectedPhaseId}
             onClose={() => setSelectedPhaseId(null)}
             onBuildPhase={async () => {
-              const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === selectedPhaseId);
+              const phase = dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === selectedPhaseId
+              );
               if (phase) {
                 startDynamicPhasedBuild(phase.order);
               }
               setSelectedPhaseId(null);
             }}
             onSkipPhase={async () => {
-              const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === selectedPhaseId);
+              const phase = dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === selectedPhaseId
+              );
               if (phase) {
                 dynamicBuildPhases.skipPhase(phase.order);
               }
               setSelectedPhaseId(null);
             }}
             onRetryPhase={async () => {
-              const phase = dynamicBuildPhases.uiPhases.find((p) => p.id === selectedPhaseId);
+              const phase = dynamicBuildPhases.uiPhases.find(
+                (p) => p.id === selectedPhaseId
+              );
               if (phase) {
                 dynamicBuildPhases.retryPhase(phase.order);
               }

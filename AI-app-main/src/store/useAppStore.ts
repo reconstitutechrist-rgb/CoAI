@@ -17,10 +17,10 @@
  * - File Storage: contentTab, storageFiles, loadingFiles, etc.
  */
 
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
-import { useShallow } from 'zustand/react/shallow';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
+import { useShallow } from "zustand/react/shallow";
 import type {
   ChatMessage,
   AppVersion,
@@ -35,13 +35,13 @@ import type {
   PerformanceReport,
   CurrentStagePlan,
   CompareVersions,
-} from '@/types/aiBuilderTypes';
-import type { AppConcept, ImplementationPlan } from '@/types/appConcept';
-import type { LayoutDesign } from '@/types/layoutDesign';
-import type { PhaseId } from '@/types/buildPhases';
-import type { FileMetadata, StorageStats } from '@/types/storage';
-import type { DeploymentInstructions } from '@/utils/exportApp';
-import type { ProjectDocumentation } from '@/types/projectDocumentation';
+} from "@/types/aiBuilderTypes";
+import type { AppConcept, ImplementationPlan } from "@/types/appConcept";
+import type { LayoutDesign } from "@/types/layoutDesign";
+import type { PhaseId } from "@/types/buildPhases";
+import type { FileMetadata, StorageStats } from "@/types/storage";
+import type { DeploymentInstructions } from "@/utils/exportApp";
+import type { ProjectDocumentation } from "@/types/projectDocumentation";
 import type {
   Team,
   TeamMember,
@@ -53,7 +53,15 @@ import type {
   ActivityLog,
   ActivityFilters,
   PresenceUser,
-} from '@/types/collaboration';
+} from "@/types/collaboration";
+import type {
+  DebateSession,
+  DebateMessage,
+  DebateConsensus,
+  DebateCost,
+  DebateStatus,
+  DebateModelId,
+} from "@/types/aiCollaboration";
 
 // ============================================================================
 // STORE STATE INTERFACE
@@ -68,7 +76,9 @@ interface ChatSlice {
   isGenerating: boolean;
   generationProgress: string;
   // Actions
-  setChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+  setChatMessages: (
+    messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])
+  ) => void;
   setUserInput: (input: string) => void;
   setIsGenerating: (isGenerating: boolean) => void;
   setGenerationProgress: (progress: string) => void;
@@ -97,7 +107,9 @@ interface ComponentsSlice {
   dbSyncError: string | null;
   // Actions
   setComponents: (
-    components: GeneratedComponent[] | ((prev: GeneratedComponent[]) => GeneratedComponent[])
+    components:
+      | GeneratedComponent[]
+      | ((prev: GeneratedComponent[]) => GeneratedComponent[])
   ) => void;
   setCurrentComponent: (component: GeneratedComponent | null) => void;
   setLoadingApps: (loading: boolean) => void;
@@ -115,8 +127,12 @@ interface VersionControlSlice {
   redoStack: AppVersion[];
   showVersionHistory: boolean;
   // Actions
-  setUndoStack: (stack: AppVersion[] | ((prev: AppVersion[]) => AppVersion[])) => void;
-  setRedoStack: (stack: AppVersion[] | ((prev: AppVersion[]) => AppVersion[])) => void;
+  setUndoStack: (
+    stack: AppVersion[] | ((prev: AppVersion[]) => AppVersion[])
+  ) => void;
+  setRedoStack: (
+    stack: AppVersion[] | ((prev: AppVersion[]) => AppVersion[])
+  ) => void;
   setShowVersionHistory: (show: boolean) => void;
   pushToUndoStack: (version: AppVersion) => void;
   pushToRedoStack: (version: AppVersion) => void;
@@ -126,13 +142,13 @@ interface VersionControlSlice {
 /**
  * Main view type for tab navigation
  */
-export type MainView = 'main' | 'wizard' | 'layout' | 'build';
+export type MainView = "main" | "wizard" | "layout" | "build";
 
 /**
  * Preview mode type for WebContainers integration
  */
-type PreviewMode = 'sandpack' | 'webcontainer';
-type WebContainerStatus = 'idle' | 'booting' | 'ready' | 'error';
+type PreviewMode = "sandpack" | "webcontainer";
+type WebContainerStatus = "idle" | "booting" | "ready" | "error";
 
 /**
  * UI state slice
@@ -210,7 +226,9 @@ interface DataSlice {
   setPendingChange: (change: PendingChange | null) => void;
   setPendingDiff: (diff: PendingDiff | null) => void;
   setPendingNewAppRequest: (request: string) => void;
-  setDeploymentInstructions: (instructions: DeploymentInstructions | null) => void;
+  setDeploymentInstructions: (
+    instructions: DeploymentInstructions | null
+  ) => void;
   setExportingApp: (app: GeneratedComponent | null) => void;
   setCompareVersions: (versions: CompareVersions) => void;
   setCurrentStagePlan: (plan: CurrentStagePlan | null) => void;
@@ -234,7 +252,7 @@ interface DataSlice {
 /**
  * Documentation slice state for Project Documentation System
  */
-type DocumentationPanelTab = 'concept' | 'design' | 'plan' | 'progress';
+type DocumentationPanelTab = "concept" | "design" | "plan" | "progress";
 
 interface DocumentationSlice {
   // Current documentation
@@ -263,8 +281,8 @@ interface FileStorageSlice {
   selectedFiles: Set<string>;
   fileSearchQuery: string;
   fileTypeFilter: string;
-  fileSortBy: 'name' | 'size' | 'created_at' | 'updated_at';
-  fileSortOrder: 'asc' | 'desc';
+  fileSortBy: "name" | "size" | "created_at" | "updated_at";
+  fileSortOrder: "asc" | "desc";
   storageStats: StorageStats | null;
   uploadingFiles: Set<string>;
   deletingFiles: Set<string>;
@@ -275,8 +293,10 @@ interface FileStorageSlice {
   setSelectedFiles: (files: Set<string>) => void;
   setFileSearchQuery: (query: string) => void;
   setFileTypeFilter: (filter: string) => void;
-  setFileSortBy: (sortBy: 'name' | 'size' | 'created_at' | 'updated_at') => void;
-  setFileSortOrder: (order: 'asc' | 'desc') => void;
+  setFileSortBy: (
+    sortBy: "name" | "size" | "created_at" | "updated_at"
+  ) => void;
+  setFileSortOrder: (order: "asc" | "desc") => void;
   setStorageStats: (stats: StorageStats | null) => void;
   setUploadingFiles: (files: Set<string>) => void;
   setDeletingFiles: (files: Set<string>) => void;
@@ -370,11 +390,47 @@ interface ActivitySlice {
 }
 
 /**
+ * Debate slice state for collaborative multi-AI debate feature
+ */
+interface DebateSlice {
+  // Current debate
+  activeDebate: DebateSession | null;
+  isDebating: boolean;
+  debateMessages: DebateMessage[];
+  currentSpeaker: DebateModelId | null;
+  debateCost: DebateCost | null;
+  // Debate history for current app
+  debateHistory: DebateSession[];
+  debateHistoryLoading: boolean;
+  // UI state
+  showDebatePanel: boolean;
+  showDebateHistory: boolean;
+  debateMode: boolean; // Toggle for "Ask Both AIs" mode
+  // Actions
+  setActiveDebate: (debate: DebateSession | null) => void;
+  setIsDebating: (isDebating: boolean) => void;
+  addDebateMessage: (message: DebateMessage) => void;
+  setDebateMessages: (messages: DebateMessage[]) => void;
+  setCurrentSpeaker: (modelId: DebateModelId | null) => void;
+  setDebateCost: (cost: DebateCost | null) => void;
+  setDebateHistory: (debates: DebateSession[]) => void;
+  addDebateToHistory: (debate: DebateSession) => void;
+  updateDebateInHistory: (
+    debateId: string,
+    updates: Partial<DebateSession>
+  ) => void;
+  setDebateHistoryLoading: (loading: boolean) => void;
+  setShowDebatePanel: (show: boolean) => void;
+  setShowDebateHistory: (show: boolean) => void;
+  setDebateMode: (enabled: boolean) => void;
+  clearActiveDebate: () => void;
+}
+
+/**
  * Complete store state combining all slices
  */
 export interface AppState
-  extends
-    ChatSlice,
+  extends ChatSlice,
     ModeSlice,
     ComponentsSlice,
     VersionControlSlice,
@@ -384,7 +440,8 @@ export interface AppState
     FileStorageSlice,
     CollaborationSlice,
     TaskSlice,
-    ActivitySlice {}
+    ActivitySlice,
+    DebateSlice {}
 
 // ============================================================================
 // STORE IMPLEMENTATION
@@ -400,17 +457,21 @@ export const useAppStore = create<AppState>()(
       // CHAT SLICE
       // ========================================================================
       chatMessages: [],
-      userInput: '',
+      userInput: "",
       isGenerating: false,
-      generationProgress: '',
+      generationProgress: "",
 
       setChatMessages: (messages) =>
         set((state) => ({
-          chatMessages: typeof messages === 'function' ? messages(state.chatMessages) : messages,
+          chatMessages:
+            typeof messages === "function"
+              ? messages(state.chatMessages)
+              : messages,
         })),
       setUserInput: (input) => set({ userInput: input }),
       setIsGenerating: (isGenerating) => set({ isGenerating }),
-      setGenerationProgress: (progress) => set({ generationProgress: progress }),
+      setGenerationProgress: (progress) =>
+        set({ generationProgress: progress }),
       addChatMessage: (message) =>
         set((state) => ({
           chatMessages: [...state.chatMessages, message],
@@ -420,8 +481,8 @@ export const useAppStore = create<AppState>()(
       // ========================================================================
       // MODE SLICE
       // ========================================================================
-      currentMode: 'PLAN',
-      lastUserRequest: '',
+      currentMode: "PLAN",
+      lastUserRequest: "",
 
       setCurrentMode: (mode) => set({ currentMode: mode }),
       setLastUserRequest: (request) => set({ lastUserRequest: request }),
@@ -436,7 +497,10 @@ export const useAppStore = create<AppState>()(
 
       setComponents: (components) =>
         set((state) => ({
-          components: typeof components === 'function' ? components(state.components) : components,
+          components:
+            typeof components === "function"
+              ? components(state.components)
+              : components,
         })),
       setCurrentComponent: (component) => set({ currentComponent: component }),
       setLoadingApps: (loading) => set({ loadingApps: loading }),
@@ -465,11 +529,13 @@ export const useAppStore = create<AppState>()(
 
       setUndoStack: (stack) =>
         set((state) => ({
-          undoStack: typeof stack === 'function' ? stack(state.undoStack) : stack,
+          undoStack:
+            typeof stack === "function" ? stack(state.undoStack) : stack,
         })),
       setRedoStack: (stack) =>
         set((state) => ({
-          redoStack: typeof stack === 'function' ? stack(state.redoStack) : stack,
+          redoStack:
+            typeof stack === "function" ? stack(state.redoStack) : stack,
         })),
       setShowVersionHistory: (show) => set({ showVersionHistory: show }),
       pushToUndoStack: (version) =>
@@ -486,8 +552,8 @@ export const useAppStore = create<AppState>()(
       // UI SLICE
       // ========================================================================
       isClient: false,
-      activeTab: 'chat',
-      activeView: 'main',
+      activeTab: "chat",
+      activeView: "main",
       showLibrary: false,
       showDiffPreview: false,
       showApprovalModal: false,
@@ -501,10 +567,10 @@ export const useAppStore = create<AppState>()(
       showQualityReport: false,
       showPerformanceReport: false,
       showNameAppModal: false,
-      searchQuery: '',
+      searchQuery: "",
       // Preview mode (WebContainers support)
-      previewMode: 'sandpack',
-      webContainerStatus: 'idle',
+      previewMode: "sandpack",
+      webContainerStatus: "idle",
 
       setIsClient: (isClient) => set({ isClient }),
       setActiveTab: (tab) => set({ activeTab: tab }),
@@ -514,11 +580,14 @@ export const useAppStore = create<AppState>()(
       setShowApprovalModal: (show) => set({ showApprovalModal: show }),
       setShowDeploymentModal: (show) => set({ showDeploymentModal: show }),
       setShowCompareModal: (show) => set({ showCompareModal: show }),
-      setShowNewAppStagingModal: (show) => set({ showNewAppStagingModal: show }),
-      setShowConversationalWizard: (show) => set({ showConversationalWizard: show }),
+      setShowNewAppStagingModal: (show) =>
+        set({ showNewAppStagingModal: show }),
+      setShowConversationalWizard: (show) =>
+        set({ showConversationalWizard: show }),
       setShowLayoutBuilder: (show) => set({ showLayoutBuilder: show }),
       setShowSettings: (show) => set({ showSettings: show }),
-      setShowAdvancedPhasedBuild: (show) => set({ showAdvancedPhasedBuild: show }),
+      setShowAdvancedPhasedBuild: (show) =>
+        set({ showAdvancedPhasedBuild: show }),
       setShowQualityReport: (show) => set({ showQualityReport: show }),
       setShowPerformanceReport: (show) => set({ showPerformanceReport: show }),
       setShowNameAppModal: (show) => set({ showNameAppModal: show }),
@@ -531,7 +600,7 @@ export const useAppStore = create<AppState>()(
       // ========================================================================
       pendingChange: null,
       pendingDiff: null,
-      pendingNewAppRequest: '',
+      pendingNewAppRequest: "",
       deploymentInstructions: null,
       exportingApp: null,
       compareVersions: { v1: null, v2: null },
@@ -549,14 +618,17 @@ export const useAppStore = create<AppState>()(
 
       setPendingChange: (change) => set({ pendingChange: change }),
       setPendingDiff: (diff) => set({ pendingDiff: diff }),
-      setPendingNewAppRequest: (request) => set({ pendingNewAppRequest: request }),
-      setDeploymentInstructions: (instructions) => set({ deploymentInstructions: instructions }),
+      setPendingNewAppRequest: (request) =>
+        set({ pendingNewAppRequest: request }),
+      setDeploymentInstructions: (instructions) =>
+        set({ deploymentInstructions: instructions }),
       setExportingApp: (app) => set({ exportingApp: app }),
       setCompareVersions: (versions) => set({ compareVersions: versions }),
       setCurrentStagePlan: (plan) => set({ currentStagePlan: plan }),
       setNewAppStagePlan: (plan) =>
         set((state) => ({
-          newAppStagePlan: typeof plan === 'function' ? plan(state.newAppStagePlan) : plan,
+          newAppStagePlan:
+            typeof plan === "function" ? plan(state.newAppStagePlan) : plan,
         })),
       setAppConcept: (concept) => set({ appConcept: concept }),
       setImplementationPlan: (plan) => set({ implementationPlan: plan }),
@@ -573,7 +645,9 @@ export const useAppStore = create<AppState>()(
         })),
       removeSavedLayoutDesign: (id) =>
         set((state) => ({
-          savedLayoutDesigns: state.savedLayoutDesigns.filter((d) => d.id !== id),
+          savedLayoutDesigns: state.savedLayoutDesigns.filter(
+            (d) => d.id !== id
+          ),
         })),
 
       // ========================================================================
@@ -583,25 +657,28 @@ export const useAppStore = create<AppState>()(
       isLoadingDocumentation: false,
       isSavingDocumentation: false,
       showDocumentationPanel: false,
-      documentationPanelTab: 'concept',
+      documentationPanelTab: "concept",
 
       setCurrentDocumentation: (doc) => set({ currentDocumentation: doc }),
-      setIsLoadingDocumentation: (loading) => set({ isLoadingDocumentation: loading }),
-      setIsSavingDocumentation: (saving) => set({ isSavingDocumentation: saving }),
-      setShowDocumentationPanel: (show) => set({ showDocumentationPanel: show }),
+      setIsLoadingDocumentation: (loading) =>
+        set({ isLoadingDocumentation: loading }),
+      setIsSavingDocumentation: (saving) =>
+        set({ isSavingDocumentation: saving }),
+      setShowDocumentationPanel: (show) =>
+        set({ showDocumentationPanel: show }),
       setDocumentationPanelTab: (tab) => set({ documentationPanelTab: tab }),
 
       // ========================================================================
       // FILE STORAGE SLICE
       // ========================================================================
-      contentTab: 'apps',
+      contentTab: "apps",
       storageFiles: [],
       loadingFiles: false,
       selectedFiles: new Set<string>(),
-      fileSearchQuery: '',
-      fileTypeFilter: 'all',
-      fileSortBy: 'created_at',
-      fileSortOrder: 'desc',
+      fileSearchQuery: "",
+      fileTypeFilter: "all",
+      fileSortBy: "created_at",
+      fileSortOrder: "desc",
       storageStats: null,
       uploadingFiles: new Set<string>(),
       deletingFiles: new Set<string>(),
@@ -649,7 +726,8 @@ export const useAppStore = create<AppState>()(
       setTeams: (teams) => set({ teams }),
       setTeamsLoading: (loading) => set({ teamsLoading: loading }),
       setCurrentAppAccess: (access) => set({ currentAppAccess: access }),
-      setCurrentAppCollaborators: (collaborators) => set({ currentAppCollaborators: collaborators }),
+      setCurrentAppCollaborators: (collaborators) =>
+        set({ currentAppCollaborators: collaborators }),
       setOnlineTeamMembers: (members) => set({ onlineTeamMembers: members }),
       setShowTeamSettings: (show) => set({ showTeamSettings: show }),
       setShowInviteModal: (show) => set({ showInviteModal: show }),
@@ -661,7 +739,9 @@ export const useAppStore = create<AppState>()(
         })),
       updateTeam: (teamId, updates) =>
         set((state) => ({
-          teams: state.teams.map((t) => (t.id === teamId ? { ...t, ...updates } : t)),
+          teams: state.teams.map((t) =>
+            t.id === teamId ? { ...t, ...updates } : t
+          ),
           currentTeam:
             state.currentTeam?.id === teamId
               ? { ...state.currentTeam, ...updates }
@@ -670,8 +750,10 @@ export const useAppStore = create<AppState>()(
       removeTeam: (teamId) =>
         set((state) => ({
           teams: state.teams.filter((t) => t.id !== teamId),
-          currentTeam: state.currentTeam?.id === teamId ? null : state.currentTeam,
-          currentTeamId: state.currentTeamId === teamId ? null : state.currentTeamId,
+          currentTeam:
+            state.currentTeam?.id === teamId ? null : state.currentTeam,
+          currentTeamId:
+            state.currentTeamId === teamId ? null : state.currentTeamId,
         })),
 
       // ========================================================================
@@ -693,7 +775,9 @@ export const useAppStore = create<AppState>()(
         })),
       updateTask: (taskId, updates) =>
         set((state) => ({
-          tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+          tasks: state.tasks.map((t) =>
+            t.id === taskId ? { ...t, ...updates } : t
+          ),
           selectedTask:
             state.selectedTask?.id === taskId
               ? { ...state.selectedTask, ...updates }
@@ -702,7 +786,8 @@ export const useAppStore = create<AppState>()(
       removeTask: (taskId) =>
         set((state) => ({
           tasks: state.tasks.filter((t) => t.id !== taskId),
-          selectedTask: state.selectedTask?.id === taskId ? null : state.selectedTask,
+          selectedTask:
+            state.selectedTask?.id === taskId ? null : state.selectedTask,
         })),
       setTasksLoading: (loading) => set({ tasksLoading: loading }),
       setTaskFilters: (filters) => set({ taskFilters: filters }),
@@ -733,10 +818,58 @@ export const useAppStore = create<AppState>()(
       setActivityHasMore: (hasMore) => set({ activityHasMore: hasMore }),
       setActivityFilters: (filters) => set({ activityFilters: filters }),
       clearActivityFeed: () => set({ activityFeed: [], activityHasMore: true }),
+
+      // ========================================================================
+      // DEBATE SLICE (Collaborative Multi-AI)
+      // ========================================================================
+      activeDebate: null,
+      isDebating: false,
+      debateMessages: [],
+      currentSpeaker: null,
+      debateCost: null,
+      debateHistory: [],
+      debateHistoryLoading: false,
+      showDebatePanel: false,
+      showDebateHistory: false,
+      debateMode: false,
+
+      setActiveDebate: (debate) => set({ activeDebate: debate }),
+      setIsDebating: (isDebating) => set({ isDebating }),
+      addDebateMessage: (message) =>
+        set((state) => ({
+          debateMessages: [...state.debateMessages, message],
+        })),
+      setDebateMessages: (messages) => set({ debateMessages: messages }),
+      setCurrentSpeaker: (modelId) => set({ currentSpeaker: modelId }),
+      setDebateCost: (cost) => set({ debateCost: cost }),
+      setDebateHistory: (debates) => set({ debateHistory: debates }),
+      addDebateToHistory: (debate) =>
+        set((state) => ({
+          debateHistory: [debate, ...state.debateHistory],
+        })),
+      updateDebateInHistory: (debateId, updates) =>
+        set((state) => ({
+          debateHistory: state.debateHistory.map((d) =>
+            d.id === debateId ? { ...d, ...updates } : d
+          ),
+        })),
+      setDebateHistoryLoading: (loading) =>
+        set({ debateHistoryLoading: loading }),
+      setShowDebatePanel: (show) => set({ showDebatePanel: show }),
+      setShowDebateHistory: (show) => set({ showDebateHistory: show }),
+      setDebateMode: (enabled) => set({ debateMode: enabled }),
+      clearActiveDebate: () =>
+        set({
+          activeDebate: null,
+          isDebating: false,
+          debateMessages: [],
+          currentSpeaker: null,
+          debateCost: null,
+        }),
     })),
     {
-      name: 'app-store',
-      enabled: process.env.NODE_ENV === 'development',
+      name: "app-store",
+      enabled: process.env.NODE_ENV === "development",
     }
   )
 );
@@ -913,6 +1046,25 @@ export const useActivityState = () =>
       activityLoading: state.activityLoading,
       activityHasMore: state.activityHasMore,
       activityFilters: state.activityFilters,
+    }))
+  );
+
+/**
+ * Select debate state (collaborative multi-AI)
+ */
+export const useDebateState = () =>
+  useAppStore(
+    useShallow((state) => ({
+      activeDebate: state.activeDebate,
+      isDebating: state.isDebating,
+      debateMessages: state.debateMessages,
+      currentSpeaker: state.currentSpeaker,
+      debateCost: state.debateCost,
+      debateHistory: state.debateHistory,
+      debateHistoryLoading: state.debateHistoryLoading,
+      showDebatePanel: state.showDebatePanel,
+      showDebateHistory: state.showDebateHistory,
+      debateMode: state.debateMode,
     }))
   );
 

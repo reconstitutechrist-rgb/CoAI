@@ -3,7 +3,9 @@
 import React, { useRef, useEffect } from 'react';
 import type { ChatMessage, StagePlan, Phase } from '../types/aiBuilderTypes';
 import type { StreamingProgress as StreamingProgressType } from '../types/streaming';
+import type { DebateMessage, DebateConsensus, DebateCost, DebateModelId } from '../types/aiCollaboration';
 import { InlineStreamingProgress } from './StreamingProgress';
+import { DebatePanel } from './ai-debate';
 import {
   MessageSquareIcon,
   SendIcon,
@@ -143,6 +145,19 @@ export interface ChatPanelProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+
+  // Debate Mode (optional)
+  debateMode?: boolean;
+  onDebateModeToggle?: () => void;
+  debateMessages?: DebateMessage[];
+  debateCurrentSpeaker?: DebateModelId | null;
+  debateCost?: DebateCost | null;
+  debateConsensus?: DebateConsensus | null;
+  debateStatus?: 'idle' | 'starting' | 'debating' | 'synthesizing' | 'complete' | 'error';
+  debateError?: string | null;
+  onEndDebate?: () => void;
+  onImplementConsensus?: () => void;
+  isImplementingConsensus?: boolean;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -168,6 +183,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  // Debate mode props
+  debateMode = false,
+  onDebateModeToggle,
+  debateMessages = [],
+  debateCurrentSpeaker = null,
+  debateCost = null,
+  debateConsensus = null,
+  debateStatus = 'idle',
+  debateError = null,
+  onEndDebate,
+  onImplementConsensus,
+  isImplementingConsensus = false,
 }) => {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -177,7 +204,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages, isGenerating, isStreamingActive, streamingProgress]);
+  }, [messages, isGenerating, isStreamingActive, streamingProgress, debateMessages]);
+
+  // If debate mode is active and we have debate content, show DebatePanel
+  const showDebatePanel = debateMode && (debateStatus !== 'idle' || debateMessages.length > 0);
 
   return (
     <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden flex flex-col h-full">
@@ -189,15 +219,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             Chat
           </h2>
 
-          {/* Plan/Act Mode Toggle */}
-          <div className="flex bg-zinc-800 rounded-lg p-0.5">
-            <button
-              onClick={() => onModeChange('PLAN')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                currentMode === 'PLAN'
-                  ? 'bg-purple-600 text-white'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
+          <div className="flex items-center gap-2">
+            {/* Debate Mode Toggle */}
+            {onDebateModeToggle && (
+              <button
+                onClick={onDebateModeToggle}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  debateMode
+                    ? 'bg-gradient-to-r from-purple-500/20 to-emerald-500/20 border border-purple-500/30 text-purple-300'
+                    : 'bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600'
+                }`}
+                title="Enable debate mode: Ask both Claude and GPT-5 to collaborate on your question"
+              >
+                <DebateIcon size={14} />
+                Ask Both AIs
+              </button>
+            )}
+
+            {/* Plan/Act Mode Toggle */}
+            <div className="flex bg-zinc-800 rounded-lg p-0.5">
+              <button
+                onClick={() => onModeChange('PLAN')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  currentMode === 'PLAN'
+                    ? 'bg-purple-600 text-white'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
               title="Plan Mode: AI discusses and explains (no code changes)"
             >
               <BrainIcon size={14} />
@@ -216,19 +263,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               Act
             </button>
           </div>
+          </div>
         </div>
       </div>
 
-      {/* Chat Messages */}
-      <div ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-        {/* Phase Progress Display */}
-        {stagePlan && stagePlan.phases && stagePlan.phases.length > 0 && (
-          <PhaseProgressCard
-            phases={stagePlan.phases}
-            currentPhase={Math.max(0, stagePlan.currentPhase - 1)}
-            onBuildPhase={onBuildPhase}
-          />
-        )}
+      {/* Debate Panel - shown when debate mode is active */}
+      {showDebatePanel ? (
+        <DebatePanel
+          messages={debateMessages}
+          currentSpeaker={debateCurrentSpeaker}
+          cost={debateCost}
+          consensus={debateConsensus}
+          status={debateStatus}
+          error={debateError}
+          onEndDebate={onEndDebate || (() => {})}
+          onImplementConsensus={onImplementConsensus}
+          isImplementing={isImplementingConsensus}
+        />
+      ) : (
+        /* Chat Messages */
+        <div ref={chatContainerRef} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+          {/* Phase Progress Display */}
+          {stagePlan && stagePlan.phases && stagePlan.phases.length > 0 && (
+            <PhaseProgressCard
+              phases={stagePlan.phases}
+              currentPhase={Math.max(0, stagePlan.currentPhase - 1)}
+              onBuildPhase={onBuildPhase}
+            />
+          )}
 
         {messages.map((message) => (
           <div
@@ -287,8 +349,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           </div>
         )}
       </div>
+      )}
 
-      {/* Floating Undo/Redo Bar - appears after modifications */}
+      {/* Floating Undo/Redo Bar - appears after modifications */}}
       {(canUndo || canRedo) && (
         <div className="px-4 py-2 border-t border-zinc-800 bg-zinc-800/50 flex items-center justify-center gap-2">
           <span className="text-xs text-zinc-500 mr-2">Recent change:</span>
@@ -385,5 +448,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     </div>
   );
 };
+
+// Debate icon for the toggle button
+function DebateIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 10h.01" />
+      <path d="M12 10h.01" />
+      <path d="M16 10h.01" />
+    </svg>
+  );
+}
 
 export default ChatPanel;

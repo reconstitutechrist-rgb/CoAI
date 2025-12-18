@@ -13,19 +13,24 @@
  * @module aiCollaboration
  */
 
-import type { UserInfo } from './collaboration';
+import type { UserInfo } from "./collaboration";
 
 // ============================================================================
 // COMMON TYPES
 // ============================================================================
 
-export type BuilderMode = 'plan' | 'act' | 'layout';
+export type BuilderMode = "plan" | "act" | "layout";
 
 // ============================================================================
 // 1. AI PROMPT CONTRIBUTIONS & ATTRIBUTION
 // ============================================================================
 
-export type PromptType = 'message' | 'instruction' | 'correction' | 'clarification' | 'template';
+export type PromptType =
+  | "message"
+  | "instruction"
+  | "correction"
+  | "clarification"
+  | "template";
 
 export interface AIPromptContribution {
   id: string;
@@ -79,7 +84,13 @@ export interface UpdatePromptContributionInput {
 // 2. SHARED PROMPT TEMPLATES
 // ============================================================================
 
-export type TemplateCategory = 'general' | 'feature' | 'bugfix' | 'design' | 'refactor' | 'documentation';
+export type TemplateCategory =
+  | "general"
+  | "feature"
+  | "bugfix"
+  | "design"
+  | "refactor"
+  | "documentation";
 
 export interface TemplateVariable {
   name: string;
@@ -134,10 +145,21 @@ export interface UpdatePromptTemplateInput {
 // 3. AI DECISION VOTING
 // ============================================================================
 
-export type DecisionType = 'feature' | 'design' | 'architecture' | 'code_change' | 'phase_plan' | 'other';
-export type VotingType = 'majority' | 'unanimous' | 'threshold';
-export type DecisionStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn';
-export type VoteChoice = 'approve' | 'reject' | 'abstain' | 'request_changes';
+export type DecisionType =
+  | "feature"
+  | "design"
+  | "architecture"
+  | "code_change"
+  | "phase_plan"
+  | "other";
+export type VotingType = "majority" | "unanimous" | "threshold";
+export type DecisionStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired"
+  | "withdrawn";
+export type VoteChoice = "approve" | "reject" | "abstain" | "request_changes";
 
 export interface AIAlternative {
   index: number;
@@ -250,14 +272,14 @@ export interface CastVoteInput {
 // ============================================================================
 
 export type AIContextType =
-  | 'coding_standards'
-  | 'design_guidelines'
-  | 'business_rules'
-  | 'terminology'
-  | 'constraints'
-  | 'preferences'
-  | 'learned_patterns'
-  | 'custom';
+  | "coding_standards"
+  | "design_guidelines"
+  | "business_rules"
+  | "terminology"
+  | "constraints"
+  | "preferences"
+  | "learned_patterns"
+  | "custom";
 
 export interface SharedAIContext {
   id: string;
@@ -303,7 +325,7 @@ export interface UpdateAIContextInput {
 // 5. AI CONVERSATION HANDOFFS
 // ============================================================================
 
-export type HandoffStatus = 'pending' | 'accepted' | 'declined' | 'expired';
+export type HandoffStatus = "pending" | "accepted" | "declined" | "expired";
 
 export interface AIConversationHandoff {
   id: string;
@@ -360,21 +382,30 @@ export interface RespondToHandoffInput {
 // 6. COLLABORATIVE PHASE PLANNING
 // ============================================================================
 
-export type PlanningSessionStatus = 'draft' | 'in_review' | 'voting' | 'approved' | 'building';
-export type ApprovalType = 'majority' | 'unanimous' | 'owner_only';
+export type PlanningSessionStatus =
+  | "draft"
+  | "in_review"
+  | "voting"
+  | "approved"
+  | "building";
+export type ApprovalType = "majority" | "unanimous" | "owner_only";
 export type SuggestionType =
-  | 'add_phase'
-  | 'remove_phase'
-  | 'reorder_phases'
-  | 'edit_phase'
-  | 'merge_phases'
-  | 'split_phase'
-  | 'add_feature'
-  | 'remove_feature'
-  | 'move_feature'
-  | 'comment';
-export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'superseded';
-export type PlanningVote = 'approve' | 'reject' | 'request_changes';
+  | "add_phase"
+  | "remove_phase"
+  | "reorder_phases"
+  | "edit_phase"
+  | "merge_phases"
+  | "split_phase"
+  | "add_feature"
+  | "remove_feature"
+  | "move_feature"
+  | "comment";
+export type SuggestionStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "superseded";
+export type PlanningVote = "approve" | "reject" | "request_changes";
 
 export interface ProposedPhase {
   number: number;
@@ -487,8 +518,17 @@ export interface CastPlanningVoteInput {
 // 7. FEATURE OWNERSHIP
 // ============================================================================
 
-export type OwnershipResponsibility = 'review' | 'approve' | 'test' | 'document';
-export type OwnershipStatus = 'assigned' | 'in_progress' | 'review' | 'approved' | 'completed';
+export type OwnershipResponsibility =
+  | "review"
+  | "approve"
+  | "test"
+  | "document";
+export type OwnershipStatus =
+  | "assigned"
+  | "in_progress"
+  | "review"
+  | "approved"
+  | "completed";
 
 export interface FeatureOwnership {
   id: string;
@@ -541,9 +581,20 @@ export interface UpdateFeatureOwnershipInput {
 // 8. AI REVIEW WORKFLOW
 // ============================================================================
 
-export type ReviewType = 'code' | 'design' | 'feature' | 'phase' | 'full_build';
-export type ReviewStatus = 'pending' | 'in_review' | 'changes_requested' | 'approved' | 'rejected' | 'applied' | 'expired';
-export type ReviewDecision = 'approve' | 'request_changes' | 'reject' | 'comment_only';
+export type ReviewType = "code" | "design" | "feature" | "phase" | "full_build";
+export type ReviewStatus =
+  | "pending"
+  | "in_review"
+  | "changes_requested"
+  | "approved"
+  | "rejected"
+  | "applied"
+  | "expired";
+export type ReviewDecision =
+  | "approve"
+  | "request_changes"
+  | "reject"
+  | "comment_only";
 
 export interface FileChange {
   path: string;
@@ -555,12 +606,12 @@ export interface InlineComment {
   file: string;
   line: number;
   comment: string;
-  severity: 'info' | 'warning' | 'error';
+  severity: "info" | "warning" | "error";
 }
 
 export interface RequestedChange {
   description: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   resolved: boolean;
 }
 
@@ -671,7 +722,7 @@ export interface CreateReviewResponseInput {
 // 9. NOTIFICATION PREFERENCES
 // ============================================================================
 
-export type EmailDigestFrequency = 'instant' | 'hourly' | 'daily' | 'weekly';
+export type EmailDigestFrequency = "instant" | "hourly" | "daily" | "weekly";
 
 export interface AICollaborationNotifications {
   id: string;
@@ -766,4 +817,200 @@ export interface TeamAICollaborationDashboard {
   };
   sharedContexts: SharedAIContext[];
   templates: SharedPromptTemplate[];
+}
+
+// ============================================================================
+// 10. COLLABORATIVE AI DEBATE (Multi-Model)
+// ============================================================================
+
+export type DebateModelId =
+  | "claude-opus-4"
+  | "claude-sonnet-4"
+  | "gpt-5"
+  | "gpt-4o";
+
+export type DebateStatus =
+  | "starting"
+  | "debating"
+  | "agreed"
+  | "user-ended"
+  | "error";
+
+export type DebateRole = "strategic-architect" | "implementation-specialist";
+
+/**
+ * A single message in a debate conversation between AI models
+ */
+export interface DebateMessage {
+  id: string;
+  modelId: DebateModelId;
+  modelDisplayName: string;
+  role: DebateRole;
+  content: string;
+  turnNumber: number;
+  isAgreement: boolean; // Did this message express agreement?
+  tokensUsed: {
+    input: number;
+    output: number;
+  };
+  timestamp: string;
+}
+
+/**
+ * Action item extracted from debate consensus
+ */
+export interface DebateActionItem {
+  id: string;
+  description: string;
+  priority: "high" | "medium" | "low";
+  suggestedBy: DebateModelId;
+  agreedUponBy: DebateModelId[];
+}
+
+/**
+ * The final consensus reached by the debating models
+ */
+export interface DebateConsensus {
+  summary: string;
+  actionItems: DebateActionItem[];
+  keyDecisions: string[];
+  implementable: boolean;
+  implementedAt?: string;
+  implementationDetails?: {
+    filesAffected: string[];
+    changesSummary: string;
+  };
+}
+
+/**
+ * Cost breakdown for a debate session
+ */
+export interface DebateCost {
+  byModel: Record<
+    DebateModelId,
+    {
+      inputTokens: number;
+      outputTokens: number;
+      cost: number;
+    }
+  >;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCost: number;
+}
+
+/**
+ * A complete debate session
+ */
+export interface DebateSession {
+  id: string;
+  appId: string;
+  userQuestion: string;
+  messages: DebateMessage[];
+  participants: {
+    modelId: DebateModelId;
+    displayName: string;
+    role: DebateRole;
+  }[];
+  status: DebateStatus;
+  roundCount: number;
+  maxRounds: number;
+  consensus?: DebateConsensus;
+  cost: DebateCost;
+  createdAt: string;
+  updatedAt: string;
+  endedAt?: string;
+}
+
+/**
+ * SSE event types for streaming debate updates
+ */
+export type DebateStreamEventType =
+  | "debate_start"
+  | "model_start"
+  | "model_chunk"
+  | "model_complete"
+  | "agreement_detected"
+  | "synthesis_start"
+  | "synthesis_complete"
+  | "cost_update"
+  | "debate_complete"
+  | "debate_error";
+
+export interface DebateStreamEvent {
+  type: DebateStreamEventType;
+  timestamp: number;
+  sessionId: string;
+
+  // Model-specific data
+  modelId?: DebateModelId;
+  modelDisplayName?: string;
+  turnNumber?: number;
+  content?: string;
+
+  // Agreement data
+  agreementDetected?: boolean;
+  agreementReason?: string;
+
+  // Consensus data
+  consensus?: DebateConsensus;
+
+  // Cost data
+  cost?: DebateCost;
+
+  // Error data
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+/**
+ * Request body for starting a debate
+ */
+export interface StartDebateRequest {
+  appId: string;
+  userQuestion: string;
+  maxRounds?: number; // Default: 3
+  models?: DebateModelId[]; // Default: ['claude-opus-4', 'gpt-5']
+  currentAppState?: {
+    name?: string;
+    files?: Array<{ path: string; content: string }>;
+  };
+}
+
+/**
+ * Request body for ending a debate
+ */
+export interface EndDebateRequest {
+  sessionId: string;
+  reason: "user-ended" | "agreed";
+}
+
+/**
+ * Agreement detection phrases
+ */
+export const AGREEMENT_PHRASES = [
+  "i agree",
+  "that works",
+  "good approach",
+  "let's go with",
+  "i think we're aligned",
+  "that covers it",
+  "nothing to add",
+  "well said",
+  "exactly right",
+  "perfect",
+  "i'm on board",
+  "sounds good",
+  "that makes sense",
+  "i concur",
+];
+
+/**
+ * Check if a message contains agreement language
+ */
+export function detectAgreement(content: string): boolean {
+  const lowerContent = content.toLowerCase();
+  return AGREEMENT_PHRASES.some((phrase) => lowerContent.includes(phrase));
 }
