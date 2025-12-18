@@ -10,12 +10,15 @@
 import type { AIProvider } from "./AIProvider";
 import { ClaudeOpusProvider, ClaudeSonnetProvider } from "./AnthropicProvider";
 import { GPT5Provider, GPT4oProvider } from "./OpenAIProvider";
+import { GeminiProProvider, GeminiUltraProvider } from "./GeminiProvider";
 
 export type ProviderId =
   | "claude-opus-4"
   | "claude-sonnet-4"
   | "gpt-5"
-  | "gpt-4o";
+  | "gpt-4o"
+  | "gemini-pro"
+  | "gemini-ultra";
 
 /**
  * All available providers
@@ -25,6 +28,8 @@ const providerClasses: Record<ProviderId, new () => AIProvider> = {
   "claude-sonnet-4": ClaudeSonnetProvider,
   "gpt-5": GPT5Provider,
   "gpt-4o": GPT4oProvider,
+  "gemini-pro": GeminiProProvider,
+  "gemini-ultra": GeminiUltraProvider,
 };
 
 /**

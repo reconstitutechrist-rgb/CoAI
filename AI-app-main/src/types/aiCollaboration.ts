@@ -827,7 +827,9 @@ export type DebateModelId =
   | "claude-opus-4"
   | "claude-sonnet-4"
   | "gpt-5"
-  | "gpt-4o";
+  | "gpt-4o"
+  | "gemini-pro"
+  | "gemini-ultra";
 
 export type DebateStatus =
   | "starting"
@@ -836,7 +838,25 @@ export type DebateStatus =
   | "user-ended"
   | "error";
 
-export type DebateRole = "strategic-architect" | "implementation-specialist";
+/**
+ * Debate style determines how models interact
+ */
+export type DebateStyle = "cooperative" | "adversarial" | "red_team" | "panel";
+
+/**
+ * Expanded roles for different debate scenarios
+ */
+export type DebateRole =
+  | "strategic-architect"
+  | "implementation-specialist"
+  | "security-analyst"
+  | "ux-advocate"
+  | "devils-advocate"
+  | "code-quality-expert"
+  | "creative-thinker"
+  | "practical-evaluator"
+  | "innovation-catalyst"
+  | "proposer";
 
 /**
  * A single message in a debate conversation between AI models
@@ -853,6 +873,7 @@ export interface DebateMessage {
     input: number;
     output: number;
   };
+  votes?: DebateMessageVotes;
   timestamp: string;
 }
 
@@ -905,6 +926,8 @@ export interface DebateCost {
 export interface DebateSession {
   id: string;
   appId: string;
+  userId?: string;
+  teamId?: string;
   userQuestion: string;
   messages: DebateMessage[];
   participants: {
@@ -913,14 +936,135 @@ export interface DebateSession {
     role: DebateRole;
   }[];
   status: DebateStatus;
+  style: DebateStyle;
   roundCount: number;
   maxRounds: number;
+  interjections?: DebateInterjection[];
   consensus?: DebateConsensus;
   cost: DebateCost;
+  templateId?: string;
   createdAt: string;
   updatedAt: string;
   endedAt?: string;
 }
+
+// ============================================================================
+// USER INTERJECTIONS & VOTING
+// ============================================================================
+
+/**
+ * Type of user interjection during a debate
+ */
+export type InterjectionType = "comment" | "steer" | "challenge" | "clarify";
+
+/**
+ * User input during an active debate
+ */
+export interface DebateInterjection {
+  id: string;
+  sessionId: string;
+  userId: string;
+  content: string;
+  interjectionType: InterjectionType;
+  targetMessageId?: string; // If challenging a specific message
+  acknowledgedBy: DebateModelId[];
+  afterTurn: number;
+  timestamp: string;
+}
+
+/**
+ * Create interjection input
+ */
+export interface CreateInterjectionInput {
+  sessionId: string;
+  content: string;
+  interjectionType: InterjectionType;
+  targetMessageId?: string;
+}
+
+/**
+ * Vote on a debate message
+ */
+export type DebateVote = "up" | "down";
+
+/**
+ * Voting data for a debate message
+ */
+export interface DebateMessageVotes {
+  upvotes: number;
+  downvotes: number;
+  voters: Array<{ userId: string; vote: DebateVote }>;
+  userVote?: DebateVote; // Current user's vote
+}
+
+/**
+ * Input for voting on a message
+ */
+export interface CastDebateVoteInput {
+  messageId: string;
+  vote: DebateVote;
+}
+
+// ============================================================================
+// DEBATE TEMPLATES
+// ============================================================================
+
+/**
+ * Template types for common debate scenarios
+ */
+export type DebateTemplateType =
+  | "code_review"
+  | "architecture"
+  | "brainstorming"
+  | "devils_advocate"
+  | "custom";
+
+/**
+ * A reusable debate configuration template
+ */
+export interface DebateTemplate {
+  id: string;
+  teamId?: string;
+  createdBy: string;
+  name: string;
+  description?: string;
+  templateType: DebateTemplateType;
+  defaultStyle: DebateStyle;
+  defaultMaxRounds: number;
+  defaultParticipants: Array<{
+    modelId: DebateModelId;
+    displayName: string;
+    role: DebateRole;
+  }>;
+  systemPromptOverrides?: Record<DebateModelId, string>;
+  useCount: number;
+  isPublic: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Create template input
+ */
+export interface CreateDebateTemplateInput {
+  teamId?: string;
+  name: string;
+  description?: string;
+  templateType: DebateTemplateType;
+  defaultStyle?: DebateStyle;
+  defaultMaxRounds?: number;
+  defaultParticipants: Array<{
+    modelId: DebateModelId;
+    displayName: string;
+    role: DebateRole;
+  }>;
+  systemPromptOverrides?: Record<DebateModelId, string>;
+  isPublic?: boolean;
+}
+
+// ============================================================================
+// SSE STREAMING EVENTS
+// ============================================================================
 
 /**
  * SSE event types for streaming debate updates
@@ -935,7 +1079,11 @@ export type DebateStreamEventType =
   | "synthesis_complete"
   | "cost_update"
   | "debate_complete"
-  | "debate_error";
+  | "debate_error"
+  | "user_interjection"
+  | "interjection_acknowledged"
+  | "vote_update"
+  | "code_diff_ready";
 
 export interface DebateStreamEvent {
   type: DebateStreamEventType;
@@ -973,6 +1121,13 @@ export interface StartDebateRequest {
   userQuestion: string;
   maxRounds?: number; // Default: 3
   models?: DebateModelId[]; // Default: ['claude-opus-4', 'gpt-5']
+  style?: DebateStyle; // Default: 'cooperative'
+  templateId?: string; // Use a saved template
+  participants?: Array<{
+    modelId: DebateModelId;
+    displayName: string;
+    role: DebateRole;
+  }>;
   currentAppState?: {
     name?: string;
     files?: Array<{ path: string; content: string }>;

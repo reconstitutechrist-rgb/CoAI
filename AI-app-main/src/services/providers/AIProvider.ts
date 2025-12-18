@@ -56,8 +56,8 @@ export interface AIProvider {
   /** Model name used in API calls */
   readonly modelName: string;
 
-  /** Provider name (anthropic, openai) */
-  readonly providerName: "anthropic" | "openai";
+  /** Provider name (anthropic, openai, google) */
+  readonly providerName: "anthropic" | "openai" | "google";
 
   /** Pricing info for cost tracking */
   readonly pricing: ProviderPricing;
@@ -96,7 +96,7 @@ export abstract class BaseAIProvider implements AIProvider {
   abstract readonly modelId: string;
   abstract readonly displayName: string;
   abstract readonly modelName: string;
-  abstract readonly providerName: "anthropic" | "openai";
+  abstract readonly providerName: "anthropic" | "openai" | "google";
   abstract readonly pricing: ProviderPricing;
 
   abstract generate(

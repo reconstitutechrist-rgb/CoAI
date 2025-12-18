@@ -4,7 +4,10 @@
       "Bash(git -C \"c:\\Users\\willi\\CoAI\" rev-parse --show-toplevel)",
       "Bash(gh auth status:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx next build)"
     ]
   }
 }

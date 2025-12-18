@@ -18,6 +18,8 @@ import type {
   DebateStreamEvent,
   DebateModelId,
   StartDebateRequest,
+  InterjectionType,
+  DebateInterjection,
 } from "@/types/aiCollaboration";
 import { DEFAULT_DEBATE_PARTICIPANTS } from "@/prompts/debatePersonas";
 
@@ -54,6 +56,18 @@ interface UseDebateChatReturn {
   toggleDebateMode: () => void;
   clearDebate: () => void;
 
+  // User Interjections
+  interject: (
+    content: string,
+    type?: InterjectionType,
+    targetMessageId?: string
+  ) => Promise<DebateInterjection | null>;
+  challenge: (
+    messageId: string,
+    reason: string
+  ) => Promise<DebateInterjection | null>;
+  pendingInterjections: DebateInterjection[];
+
   // History
   debateHistory: DebateSession[];
   loadDebateHistory: () => Promise<void>;
@@ -72,6 +86,7 @@ export function useDebateChat(
   const [error, setError] = useState<string | null>(null);
   const [consensus, setConsensus] = useState<DebateConsensus | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [pendingInterjections, setPendingInterjections] = useState<DebateInterjection[]>([]);
 
   // Abort controller for cancellation
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -340,7 +355,67 @@ export function useDebateChat(
     setError(null);
     setConsensus(null);
     setSessionId(null);
+    setPendingInterjections([]);
   }, [clearActiveDebate]);
+
+  /**
+   * Submit a user interjection during the debate
+   */
+  const interject = useCallback(
+    async (
+      content: string,
+      type: InterjectionType = "comment",
+      targetMessageId?: string
+    ): Promise<DebateInterjection | null> => {
+      if (!sessionId) {
+        console.warn("[useDebateChat] Cannot interject: no active session");
+        return null;
+      }
+
+      try {
+        const response = await fetch("/api/ai-debate/interject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            content,
+            interjectionType: type,
+            targetMessageId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to submit interjection");
+        }
+
+        const data = await response.json();
+        const interjection = data.interjection as DebateInterjection;
+
+        // Add to pending interjections
+        setPendingInterjections((prev) => [...prev, interjection]);
+
+        return interjection;
+      } catch (err) {
+        console.error("[useDebateChat] Interjection failed:", err);
+        return null;
+      }
+    },
+    [sessionId]
+  );
+
+  /**
+   * Challenge a specific message in the debate
+   */
+  const challenge = useCallback(
+    async (
+      messageId: string,
+      reason: string
+    ): Promise<DebateInterjection | null> => {
+      return interject(reason, "challenge", messageId);
+    },
+    [interject]
+  );
 
   /**
    * Load debate history for the current app
@@ -370,6 +445,11 @@ export function useDebateChat(
     endDebate,
     toggleDebateMode,
     clearDebate,
+
+    // User Interjections
+    interject,
+    challenge,
+    pendingInterjections,
 
     // History
     debateHistory: debateState.debateHistory,

@@ -14,11 +14,14 @@ import type {
   DebateConsensus,
   DebateCost,
   DebateModelId,
+  InterjectionType,
 } from "@/types/aiCollaboration";
 import { ModelBadge } from "./ModelBadge";
 import { CostTracker, CostTrackerCompact } from "./CostTracker";
 import { EndDebateButton } from "./EndDebateButton";
 import { ConsensusBanner } from "./ConsensusBanner";
+import { MessageVoteButtons } from "./MessageVoteButtons";
+import { InterjectionInputCompact } from "./InterjectionInput";
 
 interface DebatePanelProps {
   messages: DebateMessage[];
@@ -36,6 +39,13 @@ interface DebatePanelProps {
   onEndDebate: () => void;
   onImplementConsensus?: () => void;
   isImplementing?: boolean;
+  sessionId?: string;
+  onInterject?: (
+    content: string,
+    type: InterjectionType,
+    targetMessageId?: string
+  ) => Promise<void>;
+  showVoting?: boolean;
 }
 
 export function DebatePanel({
@@ -48,6 +58,9 @@ export function DebatePanel({
   onEndDebate,
   onImplementConsensus,
   isImplementing = false,
+  sessionId,
+  onInterject,
+  showVoting = true,
 }: DebatePanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +104,13 @@ export function DebatePanel({
 
         {/* Messages */}
         {messages.map((message) => (
-          <DebateMessageBubble key={message.id} message={message} />
+          <DebateMessageBubble
+            key={message.id}
+            message={message}
+            showVoting={showVoting}
+            sessionId={sessionId}
+            onInterject={onInterject}
+          />
         ))}
 
         {/* Typing indicator */}
@@ -144,9 +163,21 @@ export function DebatePanel({
  */
 interface DebateMessageBubbleProps {
   message: DebateMessage;
+  showVoting?: boolean;
+  sessionId?: string;
+  onInterject?: (
+    content: string,
+    type: InterjectionType,
+    targetMessageId?: string
+  ) => Promise<void>;
 }
 
-function DebateMessageBubble({ message }: DebateMessageBubbleProps) {
+function DebateMessageBubble({
+  message,
+  showVoting = true,
+  sessionId,
+  onInterject,
+}: DebateMessageBubbleProps) {
   const isClaudeModel = message.modelId.includes("claude");
 
   return (
@@ -190,6 +221,21 @@ function DebateMessageBubble({ message }: DebateMessageBubbleProps) {
             </span>
           </div>
         )}
+
+        {/* Message actions: voting and challenge */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-zinc-700/50">
+          {/* Voting buttons */}
+          {showVoting && <MessageVoteButtons messageId={message.id} />}
+
+          {/* Challenge button */}
+          {sessionId && onInterject && (
+            <InterjectionInputCompact
+              sessionId={sessionId}
+              onInterject={onInterject}
+              targetMessageId={message.id}
+            />
+          )}
+        </div>
       </div>
 
       {/* Timestamp */}

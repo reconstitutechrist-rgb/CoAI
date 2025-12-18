@@ -30,7 +30,14 @@ import {
   buildInitialDebatePrompt,
   buildOtherModelContext,
   buildSynthesisPrompt,
+  buildStyledSystemPrompt,
+  createParticipant,
 } from "@/prompts/debatePersonas";
+import {
+  getPendingInterjections,
+  acknowledgeInterjection,
+  buildInterjectionContext,
+} from "../interject/route";
 import type {
   DebateMessage,
   DebateSession,
@@ -38,6 +45,8 @@ import type {
   DebateCost,
   DebateStreamEvent,
   DebateModelId,
+  DebateStyle,
+  DebateParticipant,
   StartDebateRequest,
   EndDebateRequest,
 } from "@/types/aiCollaboration";
@@ -160,13 +169,39 @@ export async function POST(request: Request) {
         userQuestion,
         maxRounds = 3,
         currentAppState,
+        style = "cooperative",
+        participants: customParticipants,
       } = startRequest;
 
       sessionId = generateId();
-      const participants = DEFAULT_DEBATE_PARTICIPANTS;
+
+      // Build participants list - use custom if provided, otherwise default
+      const participants: DebateParticipant[] = customParticipants?.length
+        ? customParticipants.map((p) => {
+            const participant = createParticipant(p.modelId, p.role);
+            // Apply style modifier to system prompt
+            return {
+              ...participant,
+              systemPrompt: buildStyledSystemPrompt(participant.systemPrompt, style),
+            };
+          })
+        : DEFAULT_DEBATE_PARTICIPANTS.map((p) => ({
+            ...p,
+            systemPrompt: buildStyledSystemPrompt(p.systemPrompt, style),
+          }));
+
       const messages: DebateMessage[] = [];
       let turnNumber = 0;
-      let agreementCount = 0;
+
+      // Track agreements per model for multi-party consensus
+      const modelAgreements = new Map<DebateModelId, boolean>();
+      participants.forEach((p) => modelAgreements.set(p.modelId, false));
+
+      // For panel mode, we need more agreements
+      const isPanelMode = participants.length > 2;
+      const agreementThreshold = isPanelMode
+        ? Math.ceil(participants.length * 0.75) // 75% of models must agree
+        : 2; // Both models for standard debates
 
       // Send debate start event
       await writeEvent({
@@ -255,7 +290,9 @@ export async function POST(request: Request) {
 
           // Check for agreement
           const isAgreement = detectAgreement(fullContent);
-          if (isAgreement) agreementCount++;
+          if (isAgreement) {
+            modelAgreements.set(participant.modelId, true);
+          }
 
           // Store message
           const debateMessage: DebateMessage = {
@@ -312,20 +349,33 @@ export async function POST(request: Request) {
       // ROUNDS 2+: Models review and respond to each other
       // ========================================================================
 
-      for (let round = 1; round < maxRounds && agreementCount < 2; round++) {
+      // Helper to count agreements
+      const countAgreements = () =>
+        Array.from(modelAgreements.values()).filter(Boolean).length;
+
+      for (let round = 1; round < maxRounds && countAgreements() < agreementThreshold; round++) {
         for (let i = 0; i < participants.length; i++) {
           const participant = participants[i];
-          const otherParticipant = participants[(i + 1) % participants.length];
 
-          // Get the other model's last message
-          const otherMessages = messages.filter(
-            (m) => m.modelId === otherParticipant.modelId
+          // For panel mode, respond to ALL other participants, not just one
+          // For standard mode, respond to the single other participant
+          const otherParticipants = participants.filter(
+            (p) => p.modelId !== participant.modelId
           );
-          const lastOtherMessage = otherMessages[otherMessages.length - 1];
 
-          if (!lastOtherMessage) continue;
+          // Get recent messages from other participants
+          const recentOtherMessages = otherParticipants.map((other) => {
+            const msgs = messages.filter((m) => m.modelId === other.modelId);
+            return msgs[msgs.length - 1];
+          }).filter(Boolean);
+
+          if (recentOtherMessages.length === 0) continue;
 
           const provider = getProvider(participant.modelId as ProviderId);
+
+          // Check for pending user interjections
+          const pendingInterjections = getPendingInterjections(sessionId);
+          const interjectionContext = buildInterjectionContext(pendingInterjections);
 
           // Signal model starting
           await writeEvent({
@@ -364,10 +414,28 @@ export async function POST(request: Request) {
             }
           }
 
-          // Add prompt to respond to the other model
+          // Build response prompt based on mode
+          let responsePrompt: string;
+          if (isPanelMode) {
+            const otherNames = otherParticipants.map((p) => p.displayName).join(", ");
+            responsePrompt = `Please review and respond to the perspectives shared by the other panelists (${otherNames}). Consider all viewpoints, build on good ideas, offer improvements, or signal agreement where you're aligned.`;
+          } else {
+            const otherParticipant = otherParticipants[0];
+            responsePrompt = `Please review and respond to the above input from ${otherParticipant.displayName}. Build on good ideas, offer improvements, or signal agreement if you're aligned.`;
+          }
+
+          // Add interjection context if any
+          if (interjectionContext) {
+            responsePrompt = interjectionContext + "\n\n" + responsePrompt;
+            // Mark interjections as acknowledged by this model
+            for (const interjection of pendingInterjections) {
+              acknowledgeInterjection(sessionId, interjection.id, participant.modelId);
+            }
+          }
+
           conversationHistory.push({
             role: "user",
-            content: `Please review and respond to the above input from ${otherParticipant.displayName}. Build on good ideas, offer improvements, or signal agreement if you're aligned.`,
+            content: responsePrompt,
           });
 
           // Stream response
@@ -412,17 +480,20 @@ export async function POST(request: Request) {
             // Check for agreement
             const isAgreement = detectAgreement(fullContent);
             if (isAgreement) {
-              agreementCount++;
+              modelAgreements.set(participant.modelId, true);
 
-              // Check if both agreed (consecutive agreements)
-              const lastMessage = messages[messages.length - 1];
-              if (lastMessage?.isAgreement && isAgreement) {
+              // Check if we've reached consensus threshold
+              const currentAgreementCount = countAgreements();
+              if (currentAgreementCount >= agreementThreshold) {
+                const agreementReason = isPanelMode
+                  ? `${currentAgreementCount} of ${participants.length} panelists have reached consensus`
+                  : "Both models expressed agreement";
                 await writeEvent({
                   type: "agreement_detected",
                   timestamp: Date.now(),
                   sessionId,
                   agreementDetected: true,
-                  agreementReason: "Both models expressed agreement",
+                  agreementReason,
                 });
               }
             }
@@ -468,8 +539,8 @@ export async function POST(request: Request) {
             );
           }
 
-          // Check if we've reached agreement
-          if (agreementCount >= 2) break;
+          // Check if we've reached consensus
+          if (countAgreements() >= agreementThreshold) break;
         }
       }
 
